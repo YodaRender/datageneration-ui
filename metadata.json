@@ -1,0 +1,6 @@
+{
+  "name": "Remix Surveillance Lab — Market Abuse Schema \u0026 Report Explorer - V3",
+  "description": "Interactive market surveillance dataset inspector adapted for multi-schema PostgreSQL order-event, quality-gate, long-format feature, and isolated ground-truth models.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

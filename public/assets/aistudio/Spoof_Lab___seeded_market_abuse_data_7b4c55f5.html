@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spoof Lab – seeded market abuse data</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EDF0F6;--sf:#fff;--ink:#14213D;--mut:#5E6B85;--ln:#D6DCE8;--buy:#12877F;--sell:#5A57C9;--flag:#D3195F;--look:#D79A00;--ok:#12877F;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E1424;--sf:#151D33;--ink:#E8EDF7;--mut:#9AA6C0;--ln:#27324F;--buy:#3CC8BC;--sell:#9A98F5;--flag:#FF4D8D;--look:#FFC933;--ok:#3CC8BC}}
+:root[data-theme="dark"]{--bg:#0E1424;--sf:#151D33;--ink:#E8EDF7;--mut:#9AA6C0;--ln:#27324F;--buy:#3CC8BC;--sell:#9A98F5;--flag:#FF4D8D;--look:#FFC933;--ok:#3CC8BC}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Schibsted Grotesk",system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:24px 16px 56px}
+h1{font:700 clamp(26px,5vw,36px)/1.1 "Schibsted Grotesk",sans-serif;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:18px;margin:0 0 4px}
+.lead{color:var(--mut);margin:0 0 18px;max-width:68ch}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.ctl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 16px;align-items:end}
+label.f{display:block;font-size:13px;color:var(--mut)}label.f b{color:var(--ink);font-weight:500}
+select,input[type=number],button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:7px 9px;width:100%}
+input[type=range]{width:100%;accent-color:var(--buy)}
+.chk{display:flex;gap:6px;align-items:center;font-size:14px}
+button{cursor:pointer;font-weight:700;background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.rev{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px dashed var(--flag);font-weight:700;cursor:pointer}
+.rev input{width:20px;height:20px;accent-color:var(--flag)}
+.rev span{font-weight:400;color:var(--mut);font-size:13px}
+.tabs{display:flex;gap:6px;margin:16px 0 10px}
+.tabs button{width:auto;background:transparent;color:var(--mut);border-color:var(--ln);padding:8px 16px}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+:focus-visible{outline:3px solid var(--look);outline-offset:2px}
+.pane{display:none}.pane.on{display:block}
+svg{width:100%;height:auto;display:block}
+.ax{font:11px "IBM Plex Mono",monospace;fill:var(--mut)}.gl{stroke:var(--ln);stroke-width:1}
+.nd rect{fill:var(--sf);stroke:var(--ln);stroke-width:1.5;cursor:pointer}
+.nd.sel rect{stroke:var(--ink);stroke-width:2.5}.nd.gt rect{stroke:var(--flag);stroke-dasharray:6 4}
+.nd text{fill:var(--ink);font:500 13px "Schibsted Grotesk",sans-serif;pointer-events:none}.nd .s{fill:var(--mut);font-size:11px}
+.fk{stroke:var(--mut);stroke-width:1.5}
+.stats{display:flex;flex-wrap:wrap;gap:8px 22px;margin:0 0 10px}.stats div{font-size:13px;color:var(--mut)}.stats b{display:block;font-size:20px;color:var(--ink)}
+.leg{font-size:13px;color:var(--mut);margin:6px 0 0}
+table{width:100%;border-collapse:collapse;font:12px "IBM Plex Mono",monospace;min-width:640px}
+th{text-align:left;color:var(--mut);font-weight:500;padding:5px 8px;border-bottom:1px solid var(--ln)}td{padding:4px 8px;border-bottom:1px solid var(--ln)}
+tr.fl td{background:color-mix(in srgb,var(--flag) 16%,transparent);color:var(--ink)}tr.lk td{background:color-mix(in srgb,var(--look) 16%,transparent)}
+.ov{overflow-x:auto}
+.cols{columns:2 260px;font:13px "IBM Plex Mono",monospace;margin:8px 0 0;padding-left:18px}.cols li{break-inside:avoid;margin-bottom:2px}
+.dq{display:grid;grid-template-columns:minmax(120px,190px) 1fr 56px;gap:4px 12px;align-items:center;margin:9px 0}
+.dq small{display:block;color:var(--mut);font-size:12px}.tr{height:10px;border-radius:5px;background:var(--ln);overflow:hidden}.tr i{display:block;height:100%;background:var(--ok)}
+.num{font:500 14px "IBM Plex Mono",monospace;text-align:right}
+.note{border-left:4px solid var(--flag);padding:6px 12px;margin-top:12px;background:var(--bg);border-radius:0 8px 8px 0}
+.cfg{padding:22px 24px}.cfg h2{font-size:24px;margin:0}.cfg .sub{color:var(--mut);margin:2px 0 18px}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px}@media(max-width:620px){.cg{grid-template-columns:1fr}}
+.cg label{font-size:13px;color:var(--mut)}.cg select,.cg input{display:block;margin-top:5px;padding:11px 12px;font-size:15px;border-radius:10px;color:var(--ink)}
+.cg .w{grid-column:1/-1}
+.ft{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;margin-top:16px;color:var(--mut);font-size:13px}.ft b{color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:500}
+button.sv{width:auto;background:#3E7F8C;border-color:#3E7F8C;color:#fff;padding:11px 22px;border-radius:10px}
+.runs{margin:12px 0 0;padding-left:18px;font:12px "IBM Plex Mono",monospace;color:var(--mut)}
+</style>
+</head>
+<body>
+<main>
+<h1>Spoof Lab</h1>
+<p class="lead">A star schema for spoofing and layering surveillance, with synthetic order flow in which a few manipulation episodes are hidden among normal-looking activity. Hunt for them first, then reveal the answer key.</p>
+<section class="card cfg"><h2>Configure synthetic dataset</h2><p class="sub">Versioned, reproducible generation settings</p>
+<div class="cg">
+<label>Market / venue<select id="cvn"><option>NSE — Equity</option><option>NSE — Futures &amp; Options</option><option>BSE — Equity</option></select></label>
+<label>Instrument universe<select id="cin"><option value="RELIANCE">1 instrument · RELIANCE · Large cap</option><option value="INFY">1 instrument · INFY · Large cap</option><option value="HDFCBANK">1 instrument · HDFCBANK · Large cap</option></select></label>
+<label>Primary typology<select id="cty"><option value="S">Spoofing</option><option value="L">Layering</option><option value="SL">Spoofing and layering</option></select></label>
+<label>Manipulation prevalence<select id="cpv"><option value="0">0% · clean baseline</option><option value="1.5" selected>1.5% of event sequences</option><option value="3">3% of event sequences</option><option value="5">5% of event sequences</option></select></label>
+<label>Dataset size<select id="csz"><option value="1000">1,000 events</option><option value="2000" selected>2,000 events</option><option value="3000">3,000 events</option></select></label>
+<label>Random seed<input id="csd" type="number" value="849201"></label>
+<label>Benign look-alikes<select id="clk"><option value="1">Included · market-maker bursts</option><option value="0">Excluded</option></select></label>
+<label>Data quality defects<select id="cdf"><option value="0">None</option><option value="1">1% of rows</option><option value="3">3% of rows</option><option value="5">5% of rows</option><option value="10">10% of rows</option></select></label>
+<label class="w">Output &amp; validation profile<select id="cop"><option value="6">Star schema · Parquet + CSV labels · Full quality report</option><option value="3">Star schema · CSV + CSV labels · Basic quality checks</option></select></label>
+</div>
+<div class="ft"><span>Config <b id="cid"></b> will be saved with this generation run.</span><button id="go" class="sv" type="button">Save configuration</button></div>
+<ul class="runs" id="runs"></ul></section>
+<section class="card"><label class="rev" style="margin:0"><input id="rev" type="checkbox">Reveal seeded manipulations <span>Off: the detector’s view. On: the answer key.</span></label></section>
+<div class="tabs" role="tablist"><button class="on" data-t="schema">Star schema</button><button data-t="market">Market view</button><button data-t="dq">Data quality</button><button data-t="det">Detector</button></div>
+
+<section class="pane on card" id="schema"><h2>Star schema</h2><p class="lead">One fact table at the grain of a single order event. Select a table to see its columns. The dashed dimension is the answer key: it is generated alongside the data and never shown to the detector.</p><svg id="sv" viewBox="0 0 900 450"></svg><ul class="cols" id="cl2"></ul></section>
+
+<section class="pane card" id="market"><h2>Order flow and seeded behaviour</h2>
+<div class="stats" id="st"></div>
+<label class="f" style="max-width:260px"><b>Zoom to</b><select id="foc" disabled></select></label>
+<div id="ch"></div><p class="leg" id="lg"></p>
+<h2 style="margin-top:16px">Order lifetime: normal vs seeded</h2><div id="hi"></div>
+<h2 style="margin-top:16px">Fact rows around the first episode</h2><div class="ov"><table id="tb"></table></div></section>
+
+<section class="pane card" id="dq"><h2>Data quality checks</h2><p class="lead">Checks run on the generated fact table. Set data quality defects in the configuration and save to see them caught.</p><div id="dqs"></div><div class="note" id="dqn"></div></section>
+<section class="pane card" id="det"><h2>Simple detector</h2><p class="lead">Rule: a participant gets an order filled on one side, then cancels resting orders on the opposite side within seconds, and the cancelled quantity is large. Tune the two thresholds and score the alerts against the answer key.</p>
+<div class="ctl"><label class="f"><b>Min cancelled quantity: <span id="v1">400</span></b><input id="dth" type="range" min="50" max="1500" step="50" value="400"></label><label class="f"><b>Max seconds from fill to cancel: <span id="v2">3</span></b><input id="dw" type="range" min="1" max="10" value="3"></label><label class="chk"><input id="dsh" type="checkbox">Show alerts on the market view</label></div>
+<div class="stats" id="dm" style="margin-top:14px"></div><div class="ov"><table id="dt"></table></div>
+<p class="leg">Try lowering the quantity threshold: benign market-maker bursts start to trigger false alarms. Set data quality defects in the configuration and save: rows with a missing participant can’t be grouped, so recall drops.</p></section>
+</main>
+<script>
+const $=i=>document.getElementById(i),T=1800,TK=.05,PT=['Retail','Retail','Retail','Retail','Prop','Prop','Prop','Market maker','Market maker','Institution','Institution','Institution','Retail','Prop'],INS={RELIANCE:1250,INFY:1480,HDFCBANK:1650};
+const SC={
+fact_order_event:['event_sk  PK','order_id','event_type  NEW|MODIFY|CANCEL|TRADE|EXPIRE','event_ts_ns','time_sk  FK','instrument_sk  FK','participant_sk  FK','venue_sk  FK','order_attr_sk  FK','scenario_sk  FK (answer key)','side','price','quantity','leaves_qty','fill_qty','best_bid','best_ask'],
+dim_time:['time_sk  PK','trade_date','hh, mm, ss','session_phase','is_expiry_day'],
+dim_instrument:['instrument_sk  PK','symbol','isin','segment  CM|FO','tick_size','lot_size','price_band_pct','adv_20d'],
+dim_participant:['participant_sk  PK','member_id','client_hash','participant_type','algo_flag','desk_id'],
+dim_venue:['venue_sk  PK','exchange  NSE|BSE','segment','market_state'],
+dim_order_attr:['order_attr_sk  PK','order_type','time_in_force','validity','algo_id'],
+dim_scenario:['scenario_sk  PK','episode_id','typology  spoofing|layering|look-alike|none','role  spoof|layer|benefit leg','severity','params_json']};
+const NODES=[['dim_time',40,30,'dim_time','when'],['dim_instrument',350,15,'dim_instrument','what'],['dim_participant',660,30,'dim_participant','who'],['dim_venue',40,330,'dim_venue_segment','where'],['dim_order_attr',350,345,'dim_order_attr','how'],['dim_scenario',660,330,'dim_scenario','answer key · held out']];
+let sel='fact_order_event',D;
+function R(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function clk(t){const m=555+Math.floor(t/60);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+':'+(t%60).toFixed(2).padStart(5,'0')}
+function gen(){
+const c=cfg(),r=R(c.seed),N=c.N,E=c.E,df=c.df,ty0=c.ty.slice();
+
+const mid=[INS[c.ins]];for(let t=1;t<=T;t++)mid[t]=mid[t-1]+(r()-.5)*.14;
+const O=[],eps=[];let id=1;const sn=p=>Math.round(p*20)/20;
+const add=(t0,s,p,q,life,pid,o)=>O.push(Object.assign({id:'ORD'+String(id++).padStart(6,'0'),t0,t1:t0+life,s,p:sn(p),q,pid,out:'CANCEL',lab:0,ep:0,role:'',kind:'normal'},o));
+if(ty0.length)for(let i=0;i<E;i++){
+const ty=ty0[Math.floor(r()*ty0.length)],s0=90+(i+r()*.6)*(T-240)/E,du=ty=='S'?7+r()*6:11+r()*7,ms=r()<.5?'B':'S',dir=ms=='B'?1:-1,gs=ms=='B'?'S':'B',pid=[5,6,7,14][Math.floor(r()*4)];
+for(let t=Math.floor(s0);t<=Math.min(T,Math.ceil(s0+du+6));t++){const f=(t-s0)/du;mid[t]+=dir*.3*Math.max(0,f<1?f:1-(f-1)*du/6)}
+const m=mid[Math.floor(s0)],tf=s0+du*.6,ep=eps.length+1,o={lab:1,ep,kind:ty=='S'?'spoofing':'layering'},sg=ms=='B'?-1:1;
+if(ty=='S'){const n=1+Math.floor(r()*2);for(let j=0;j<n;j++){const t0=s0+j*1.2;add(t0,ms,m+sg*(.1+.05*j),800+Math.floor(r()*1400),tf+.2+r()*1.3-t0,pid,Object.assign({role:'spoof'},o))}}
+else{const n=5+Math.floor(r()*4);for(let j=0;j<n;j++){const t0=s0+j*.8;add(t0,ms,m+sg*(.05+.05*j),120+Math.floor(r()*280),tf+.2+j*.25+r()*.6-t0,pid,Object.assign({role:'layer'},o))}}
+add(tf-1.2,gs,m+(gs=='S'?.15:-.15),80+Math.floor(r()*70),1.2,pid,Object.assign({role:'benefit leg',out:'FILL'},o));
+eps.push({n:ep,ty:o.kind,s:s0,e:tf+3,pid});}
+if(c.lk)for(let i=0;i<Math.max(2,E);i++){const s0=60+r()*(T-120),pid=8+Math.floor(r()*2),n=6+Math.floor(r()*5);
+for(let j=0;j<n;j++){const t0=s0+j*.5,sd=j%2?'B':'S',m=mid[Math.floor(t0)];add(t0,sd,m+(sd=='B'?-1:1)*(.05+.05*Math.floor(r()*3)),20+Math.floor(r()*40),.3+r()*2.5,pid,{kind:'lookalike',out:r()<.2?'FILL':'CANCEL'})}}
+for(let i=0;i<N;i++){const t0=r()*T,s=r()<.5?'B':'S',k=Math.floor(-Math.log(1-r())*3)+1,u=r(),m=mid[Math.floor(t0)];
+add(t0,s,m+(s=='B'?-1:1)*k*TK,Math.round(10+Math.exp(r()*4.2)*3),Math.exp(1.5+r()*4),1+Math.floor(r()*14),{out:u<.3?'FILL':u<.9?'CANCEL':'EXPIRE'})}
+O.forEach(o=>{if(r()<df){const k=Math.floor(r()*6);if(k==0)o.pid=null;else if(k==1)o.p+=.02;else if(k==2)o.p*=1.6;else if(k==3)o.t1=o.t0-1-r()*3;else if(k==4)o.id=O[Math.floor(r()*O.length)].id;else o.pid=99}});
+const ids={};O.forEach(o=>ids[o.id]=(ids[o.id]||0)+1);
+const C=[['Completeness','Required fields populated',o=>o.pid!=null&&o.p!=null],
+['Tick validity','Price is a multiple of 0.05',o=>Math.abs(o.p*20-Math.round(o.p*20))<1e-6],
+['Price band','Within 20% of prevailing mid',o=>Math.abs(o.p-mid[Math.min(T,Math.floor(o.t0))])/mid[0]<=.2],
+['Referential integrity','Participant exists in dimension',o=>o.pid==null||(o.pid>=1&&o.pid<=14)],
+['Sequence validity','Order ends after it starts',o=>o.t1>=o.t0],
+['Uniqueness','Order ID appears once',o=>ids[o.id]==1]];
+D={O,mid,eps,C:C.slice(0,c.chk),cfg:c};
+const f=$('foc');f.innerHTML='<option value="all">Whole session</option>'+eps.map((e,i)=>`<option value="${i}">Episode ${e.n} at ${clk(e.s).slice(0,8)}</option>`).join('');
+draw()}
+function draw(){const rv=$('rev').checked,f=$('foc');f.disabled=!rv;if(!rv)f.value='all';detect();stats();chart();hist();table();dq();renderDet()}
+function stats(){const {O,eps}=D,sd=O.filter(o=>o.lab).length;
+$('st').innerHTML=[['Orders',O.length],['Fact rows (events)',O.length*2],['Seeded orders',$('rev').checked?sd+' ('+(sd/O.length*100).toFixed(1)+'%)':'hidden'],['Episodes',$('rev').checked?eps.length:'hidden']].map(x=>`<div>${x[0]}<b>${x[1]}</b></div>`).join('')}
+function chart(){
+const {O,mid,eps}=D,fv=$('foc').value,rv=$('rev').checked;let a=0,b=T;
+if(fv!=='all'){const e=eps[fv];a=Math.max(0,e.s-20);b=Math.min(T,e.e+20)}
+let lo=1e9,hi=-1e9;for(let t=Math.floor(a);t<=b;t++){lo=Math.min(lo,mid[t]);hi=Math.max(hi,mid[t])}lo-=.8;hi+=.8;
+const W=900,H=400,L=56,Rr=12,Tp=10,Bt=28,X=t=>L+(t-a)/(b-a)*(W-L-Rr),Y=p=>Tp+(hi-p)/(hi-lo)*(H-Tp-Bt);
+let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Order lifetimes against mid price">`;
+for(let i=0;i<=4;i++){const p=lo+(hi-lo)*i/4,y=Y(p);s+=`<line x1="${L}" x2="${W-Rr}" y1="${y}" y2="${y}" class="gl"/><text x="${L-6}" y="${y+4}" class="ax" text-anchor="end">${p.toFixed(2)}</text>`}
+for(let i=0;i<=5;i++){const t=a+(b-a)*i/5;s+=`<text x="${X(t)}" y="${H-8}" class="ax" text-anchor="middle">${clk(t).slice(0,8)}</text>`}
+const V=O.filter(o=>o.t1>=a&&o.t0<=b&&o.p>=lo&&o.p<=hi);
+const draw1=o=>{const x1=X(Math.max(a,o.t0)),x2=X(Math.min(b,o.t1)),y=Y(o.p);let c=o.s=='B'?'var(--buy)':'var(--sell)',op=.5,w=1.4;
+if(rv){if(o.lab){c='var(--flag)';op=.95;w=1.5+Math.min(4,o.q/350)}else if(o.kind=='lookalike'){c='var(--look)';op=.9;w=1.8}else op=.15}
+s+=`<line x1="${x1}" x2="${Math.max(x2,x1+1.5)}" y1="${y}" y2="${y}" stroke="${c}" stroke-opacity="${op}" stroke-width="${w}" stroke-linecap="round"/>`;
+if(o.out=='FILL'&&o.t1<=b)s+=`<circle cx="${x2}" cy="${y}" r="${rv&&o.lab?3.6:2}" fill="${c}" fill-opacity="${op}"/>`};
+V.filter(o=>!(rv&&(o.lab||o.kind=='lookalike'))).forEach(draw1);V.filter(o=>rv&&(o.lab||o.kind=='lookalike')).forEach(draw1);
+if($('dsh').checked&&D.al)D.al.forEach(k=>{if(k.t<a||k.t>b)return;const x1=X(Math.max(a,k.t-12)),x2=X(Math.min(b,k.t+4));s+=`<rect x="${x1}" y="${Tp}" width="${x2-x1}" height="${H-Tp-Bt}" fill="var(--ink)" fill-opacity=".07" stroke="var(--ink)" stroke-dasharray="4 3" stroke-opacity=".6"/><text x="${x1+3}" y="${Tp+11}" class="ax">alert</text>`});
+let pts='';for(let t=Math.ceil(a);t<=b;t++)pts+=X(t).toFixed(1)+','+Y(mid[t]).toFixed(1)+' ';
+$('ch').innerHTML=s+`<polyline fill="none" stroke="var(--ink)" stroke-width="1.6" points="${pts}"/></svg>`;
+$('lg').innerHTML=rv?'<b style="color:var(--flag)">Magenta</b>: seeded manipulation, thicker for larger orders; dots are fills. <b style="color:var(--look)">Amber</b>: benign market-maker bursts that look similar. Faded: normal flow. Black line: mid price.':'<b style="color:var(--buy)">Teal</b> bids, <b style="color:var(--sell)">indigo</b> offers, black line is the mid price. Each line is one order from placement to cancel or fill; a dot marks a fill. Can you spot the manipulation?'}
+function hist(){
+if(!$('rev').checked){$('hi').innerHTML='<p class="leg">Reveal the seeded manipulations to compare lifetimes.</p>';return}
+const ed=[1,3,10,30,120,1e9],lb=['<1s','1–3s','3–10s','10–30s','30–120s','>2m'],cn=[0,0,0,0,0,0],cs=[0,0,0,0,0,0];let nn=0,ns=0;
+D.O.forEach(o=>{if(o.kind=='lookalike')return;const l=o.t1-o.t0,i=ed.findIndex(e=>l<e);if(o.lab){cs[i]++;ns++}else{cn[i]++;nn++}});
+let s='<svg viewBox="0 0 900 190">';const bw=900/6;
+lb.forEach((l,i)=>{const hn=cn[i]/nn*130,hs=ns?cs[i]/ns*130:0,x=i*bw+30;
+s+=`<rect x="${x}" y="${150-hn}" width="60" height="${hn}" fill="var(--sell)" fill-opacity=".45" rx="3"/><rect x="${x+66}" y="${150-hs}" width="60" height="${hs}" fill="var(--flag)" rx="3"/><text x="${x+63}" y="172" class="ax" text-anchor="middle">${l}</text>`});
+$('hi').innerHTML=s+'</svg><p class="leg"><b style="color:var(--sell)">Normal</b> and <b style="color:var(--flag)">seeded</b> orders, each as a share of its own group. Seeded orders cluster at short lifetimes, but so do benign market makers, which is why lifetime alone is not a detector.</p>'}
+function table(){
+const {O,eps}=D,rv=$('rev').checked,fv=$('foc').value,e=eps[fv==='all'?0:fv],a=e?e.s-5:0,b=e?e.e+2:30,ev=[];
+O.forEach(o=>{if(o.t0>=a&&o.t0<=b)ev.push([o.t0,'NEW',o]);if(o.t1>=a&&o.t1<=b&&o.t1>=o.t0)ev.push([o.t1,o.out=='FILL'?'TRADE':o.out,o])});
+ev.sort((x,y)=>x[0]-y[0]);
+$('tb').innerHTML='<tr><th>event_ts</th><th>order_id</th><th>event_type</th><th>side</th><th>price</th><th>qty</th><th>participant</th><th>scenario (answer key)</th></tr>'+ev.slice(0,20).map(([t,ty,o])=>
+`<tr class="${rv&&o.lab?'fl':rv&&o.kind=='lookalike'?'lk':''}"><td>${clk(t)}</td><td>${o.id}</td><td>${ty}</td><td>${o.s}</td><td>${o.p.toFixed(2)}</td><td>${o.q}</td><td>${o.pid==null?'NULL':'TM-'+(1000+o.pid)}</td><td>${rv?(o.ep?'EP'+o.ep+' · '+o.role:o.kind=='lookalike'?'look-alike':'none'):'held out'}</td></tr>`).join('')}
+function dq(){
+const {O,C}=D;let h='';
+C.forEach(c=>{const p=O.filter(c[2]).length/O.length*100;h+=`<div class="dq"><div>${c[0]}<small>${c[1]}</small></div><div class="tr"><i style="width:${p}%;background:${p>99.9?'var(--ok)':p>97?'var(--look)':'var(--flag)'}"></i></div><div class="num">${p.toFixed(1)}%</div></div>`});
+const cl=o=>C.every(c=>c[2](o)),all=O.filter(cl).length,sd=O.filter(o=>o.lab),sc=sd.filter(cl).length;
+h+=`<div class="dq"><div><b>Rows passing every check</b></div><div class="tr"><i style="width:${all/O.length*100}%"></i></div><div class="num">${(all/O.length*100).toFixed(1)}%</div></div>`;
+$('dqs').innerHTML=h;
+$('dqn').innerHTML=sd.length?`<b>Clean is not the same as innocent.</b> ${sc} of ${sd.length} seeded manipulation orders pass every quality check. Quality checks tell you the data is trustworthy; only behavioural detection tells you what the participants did.`:'No seeded manipulations in this run. Enable spoofing or layering to see how quality and behaviour differ.'}
+let RUNS=[],RN=0;
+function cfg(){const g=i=>$(i).value,ty=g('cty')=='SL'?['S','L']:[g('cty')],ev=+g('csz'),pv=+g('cpv'),tot=ev/2,av=ty.length>1?5:ty[0]=='S'?2.5:7.5;
+return{ty,pv,ev,ins:g('cin'),seed:+g('csd')||1,lk:g('clk')=='1',df:+g('cdf')/100,chk:+g('cop'),E:pv>0?Math.min(12,Math.max(1,Math.round(pv/100*tot/av))):0,N:Math.max(100,Math.round(tot*(1-pv/100)))}}
+function cfgId(){const s=JSON.stringify(['cvn','cin','cty','cpv','csz','csd','cop','cdf','clk'].map(i=>$(i).value));let h=5381;for(const ch of s)h=(h*33^ch.charCodeAt(0))>>>0;return 'cfg-'+h.toString(16).padStart(8,'0')}
+function mark(){$('cid').textContent=cfgId()+(D&&cfgId()!=D.id?' (unsaved changes)':'')}
+function save(){gen();D.id=cfgId();RN++;const c=D.cfg,o=i=>$(i).selectedOptions[0].text;
+RUNS.unshift(`Run ${RN} · ${D.id} · ${o('cvn')} · ${o('cty')} · ${o('cpv')} · ${o('csz')} · seed ${c.seed}`);RUNS=RUNS.slice(0,5);
+$('runs').innerHTML=RUNS.map(x=>`<li>${x}</li>`).join('');$('cid').textContent=D.id}
+function detect(){
+const th=+$('dth').value,W=+$('dw').value,{O}=D,by={},F=new Set(),al=[];let use=0;
+O.forEach(o=>{if(o.pid!=null&&o.t1>=o.t0){(by[o.pid]=by[o.pid]||[]).push(o);use++}});
+for(const p in by){const L=by[p];L.filter(f=>f.out=='FILL').forEach(f=>{
+const c=L.filter(o=>o.out=='CANCEL'&&o.s!=f.s&&o.t0>=f.t0-15&&o.t1-f.t1>=-.5&&o.t1-f.t1<=W),q=c.reduce((x,o)=>x+o.q,0);
+if(q>=th){c.concat(f).forEach(o=>F.add(o));al.push({t:f.t1,p:+p,q,n:c.length,v:c.some(o=>o.lab)?'hit':c.some(o=>o.kind=='lookalike')?'look':'fp'})}})}
+D.fl=F;D.al=al;D.skip=O.length-use}
+function renderDet(){
+const {O,eps}=D,F=D.fl,tp=[...F].filter(o=>o.lab).length,fp=F.size-tp,fn=O.filter(o=>o.lab&&!F.has(o)).length,pc=x=>isFinite(x)?(x*100).toFixed(0)+'%':'–',cau=eps.filter(e=>O.some(o=>o.ep==e.n&&F.has(o))).length;
+$('dm').innerHTML=[['Alerts',D.al.length],['Precision',pc(tp/(tp+fp))],['Recall',pc(tp/(tp+fn))],['Episodes caught',cau+' of '+eps.length],['Rows skipped (bad data)',D.skip]].map(x=>`<div>${x[0]}<b>${x[1]}</b></div>`).join('');
+$('dt').innerHTML='<tr><th>alert_ts</th><th>participant</th><th>orders cancelled</th><th>cancelled qty</th><th>verdict vs answer key</th></tr>'+D.al.slice().sort((x,y)=>x.t-y.t).slice(0,14).map(k=>`<tr class="${k.v=='hit'?'fl':k.v=='look'?'lk':''}"><td>${clk(k.t)}</td><td>TM-${1000+k.p}</td><td>${k.n}</td><td>${k.q}</td><td>${k.v=='hit'?'Seeded episode':k.v=='look'?'False alarm (look-alike)':'False alarm'}</td></tr>`).join('')+(D.al.length?'':'<tr><td colspan="5">No alerts. Lower the thresholds.</td></tr>')}
+function schema(){
+let s='';NODES.forEach(n=>{s+=`<line class="fk" x1="450" y1="235" x2="${n[1]+100}" y2="${n[2]+40}"/>`});
+s+=`<text x="270" y="170" class="ax">N : 1</text>`;
+const box=(k,x,y,w,h,t,sub,cls)=>`<g class="nd ${cls}${sel==k?' sel':''}" data-k="${k}" tabindex="0" role="button" aria-label="${t}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/><text x="${x+w/2}" y="${y+h/2-2}" text-anchor="middle" style="font-weight:700;font-size:15px">${t}</text><text class="s" x="${x+w/2}" y="${y+h/2+18}" text-anchor="middle">${sub}</text></g>`;
+NODES.forEach(n=>s+=box(n[0],n[1],n[2],200,80,n[3],n[4],n[0]=='dim_scenario'?'gt':''));
+s+=box('fact_order_event',330,185,240,100,'fact_order_event','grain: one row per order event','');
+$('sv').innerHTML=s;$('cl2').innerHTML=SC[sel].map(c=>`<li>${c}</li>`).join('');
+$('sv').querySelectorAll('.nd').forEach(g=>{const f=()=>{sel=g.dataset.k;schema()};g.onclick=f;g.onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();f()}}})}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button,.pane').forEach(x=>x.classList.remove('on'));b.classList.add('on');$(b.dataset.t).classList.add('on')});
+[['dth','v1'],['dw','v2']].forEach(p=>$(p[0]).oninput=()=>$(p[1]).textContent=$(p[0]).value);
+['dth','dw'].forEach(i=>$(i).addEventListener('input',draw));$('dsh').onchange=draw;
+['cvn','cin','cty','cpv','csz','csd','cop','cdf','clk'].forEach(i=>{$(i).oninput=mark});
+$('go').onclick=save;$('rev').onchange=draw;$('foc').onchange=draw;
+schema();save();
+</script>
+</body>
+</html>

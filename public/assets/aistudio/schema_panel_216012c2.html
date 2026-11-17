@@ -1,0 +1,268 @@
+              <div class="schema-toolbar">
+                <div>
+                  <h2 class="section-heading">Shared master schema</h2>
+                  <p class="section-caption">The real project DDL and foreign-key relationships, unchanged across use cases.</p>
+                </div>
+                <div class="schema-actions">
+                  <button class="button" id="copy-sql" type="button">Copy all SQL</button>
+                  <button class="button" id="export-sql" type="button">Export master schema</button>
+                </div>
+              </div>
+              <div class="schema-meta">
+                <span class="tag tag-accent">MIGRATIONS 001–010</span>
+                <span class="tag">POSTGRESQL</span>
+                <span class="tag">5 SCHEMAS</span>
+                <span class="tag">9 TABLES · 6 MODEL VIEWS</span>
+              </div>
+              <div class="schema-context">
+                <span>Viewing schema for</span>
+                <strong>Spoofing and layering</strong>
+                <span>· same DDL and ERD for every scenario in this type</span>
+              </div>
+              <div class="schema-view-tabs" role="group" aria-label="Schema view">
+                <button class="schema-view-tab" id="ddl-view-button" type="button" aria-pressed="true">Full schema DDL</button>
+                <button class="schema-view-tab" id="erd-view-button" type="button" aria-pressed="false">Graphical ER diagram</button>
+                <button class="schema-view-tab" id="table-view-button" type="button" aria-pressed="false">Explore one table</button>
+              </div>
+
+              <div class="schema-view" id="ddl-view">
+                <p class="schema-footnote">Every migration section is embedded in this standalone page. Expand a section to inspect its complete SQL; use Copy all SQL or Export master schema for the combined DDL.</p>
+                <div class="schema-sections" id="schema-sections"></div>
+              </div>
+
+              <div class="schema-view" id="erd-view" hidden>
+                <div class="erd-toolbar">
+                  <div>
+                    <h3 class="section-heading">Entity relationships</h3>
+                    <p class="section-caption">Solid arrows represent declared foreign keys from child rows to their referenced parent keys.</p>
+                  </div>
+                  <div class="erd-legend" aria-label="Schema layer legend">
+                    <span class="legend-item"><i class="legend-dot legend-core"></i>Core</span>
+                    <span class="legend-item"><i class="legend-dot legend-quality"></i>Quality</span>
+                    <span class="legend-item"><i class="legend-dot legend-labels"></i>Labels</span>
+                    <span class="legend-item"><i class="legend-dot legend-analytics"></i>Analytics</span>
+                  </div>
+                </div>
+                <div class="erd-wrap" role="region" aria-label="Scrollable entity relationship diagram" tabindex="0">
+                  <svg class="erd-canvas" viewBox="0 0 1640 1010" role="img" aria-labelledby="erd-title erd-description">
+                    <title id="erd-title">Master schema entity relationship diagram</title>
+                    <desc id="erd-description">Nine tables across quality, core, labels, and analytics. Arrows point from referenced parent tables to rows carrying the foreign key. Scenario IDs and polymorphic feature entity IDs are not foreign keys.</desc>
+                    <defs>
+                      <marker id="erd-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#77cdb0"></path>
+                      </marker>
+                    </defs>
+                    <g aria-hidden="true">
+                      <path class="erd-arrow erd-arrow-soft" d="M 930 100 H 1160"></path>
+                      <text class="erd-arrow-label" x="1008" y="91">run_id</text>
+
+                      <path class="erd-arrow erd-arrow-soft" d="M 655 160 V 220 H 240 V 290"></path>
+                      <text class="erd-arrow-label" x="380" y="212">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 755 160 V 258 H 600 V 330"></path>
+                      <text class="erd-arrow-label" x="615" y="251">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 835 160 V 225 H 1010 V 290"></path>
+                      <text class="erd-arrow-label" x="917" y="217">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 930 145 H 945 V 205 H 1530 V 240 H 1420 V 320"></path>
+                      <text class="erd-arrow-label" x="1320" y="197">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 610 90 H 15 V 950 H 225 V 920"></path>
+                      <text class="erd-arrow-label" x="25" y="620" transform="rotate(90 25 620)">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 780 160 V 670 H 650 V 700"></path>
+                      <text class="erd-arrow-label" x="666" y="667">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 930 145 H 945 V 195 H 1600 V 665 H 1320 V 700"></path>
+                      <text class="erd-arrow-label" x="1460" y="655">run_id</text>
+                      <path class="erd-arrow" d="M 440 388 H 380"></path>
+                      <text class="erd-arrow-label" x="383" y="378">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 760 408 H 820"></path>
+                      <text class="erd-arrow-label" x="763" y="398">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 760 468 H 785 V 635 H 1240 V 468 H 1260"></path>
+                      <text class="erd-arrow-label" x="900" y="627">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 465 540 V 635 H 260 V 700"></path>
+                      <text class="erd-arrow-label" x="320" y="627">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 680 540 V 700"></path>
+                      <text class="erd-arrow-label" x="687" y="625" transform="rotate(90 687 625)">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 1170 415 H 1260"></path>
+                      <text class="erd-arrow-label" x="1177" y="405">run_id, order_id</text>
+                      <path class="erd-arrow" d="M 1170 480 H 1200 V 600 H 1238 V 475 H 1260"></path>
+                      <text class="erd-arrow-label" x="1176" y="593">run_id, parent_order_id</text>
+
+                      <path class="erd-arrow" d="M 820 470 H 790 V 650 H 350 V 700"></path>
+                      <text class="erd-arrow-label" x="580" y="642">run_id, buy_order_id</text>
+                      <path class="erd-arrow" d="M 820 495 H 780 V 670 H 390 V 700"></path>
+                      <text class="erd-arrow-label" x="570" y="664">run_id, sell_order_id</text>
+                      <path class="erd-arrow" d="M 1145 300 C 1195 250, 1240 285, 1220 325 C 1210 345, 1192 345, 1170 345"></path>
+                      <text class="erd-arrow-label" x="1177" y="271">parent_order_id · self-FK</text>
+                    </g>
+
+                    <g class="erd-node erd-quality" transform="translate(610 32)">
+                      <rect class="erd-node-bg" width="320" height="128" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 311 Q 320 0 320 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">QUALITY</text>
+                      <text class="erd-node-title" x="14" y="29">run_metadata</text>
+                      <text class="erd-node-field erd-key" x="14" y="55">PK  run_id</text>
+                      <text class="erd-node-field" x="14" y="72">    random_seed · config_version</text>
+                      <text class="erd-node-field" x="14" y="89">    generator_version · scenario_version</text>
+                      <text class="erd-node-field" x="14" y="106">    config_hash · config_json · status</text>
+                      <text class="erd-node-field" x="14" y="121">    created_at</text>
+                    </g>
+
+                    <g class="erd-node erd-quality" transform="translate(1160 40)">
+                      <rect class="erd-node-bg" width="350" height="145" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 341 Q 350 0 350 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">QUALITY</text>
+                      <text class="erd-node-title" x="14" y="29">validation_results</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · result_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field" x="14" y="95">    check_id · requirement_id · scope</text>
+                      <text class="erd-node-field" x="14" y="114">    scenario_id · status · message</text>
+                      <text class="erd-node-field" x="14" y="133">    details · created_at</text>
+                    </g>
+
+                    <g class="erd-node erd-labels" transform="translate(40 290)">
+                      <rect class="erd-node-bg" width="340" height="265" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 331 Q 340 0 340 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">LABELS</text>
+                      <text class="erd-node-title" x="14" y="29">scenario_manifest</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · scenario_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field" x="14" y="120">    scenario_type · scenario_version</text>
+                      <text class="erd-node-field" x="14" y="139">    start_timestamp · end_timestamp</text>
+                      <text class="erd-node-field" x="14" y="158">    related_order_ids · related_event_ids</text>
+                      <text class="erd-node-field" x="14" y="177">    related_trade_ids · intended_pattern</text>
+                      <text class="erd-node-field" x="14" y="196">    ground_truth_label · pattern_class</text>
+                      <text class="erd-node-field" x="14" y="215">    event_association · evaluation_label</text>
+                      <text class="erd-node-field" x="14" y="234">    acceptance_criterion · validation_status</text>
+                      <text class="erd-node-field" x="14" y="253">    validation_reason · random_seed</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(440 330)">
+                      <rect class="erd-node-bg" width="320" height="210" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 311 Q 320 0 320 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">instrument_master</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · instrument_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field" x="14" y="101">    symbol · exchange · currency</text>
+                      <text class="erd-node-field" x="14" y="120">    tick_size · lot_size · price_bands</text>
+                      <text class="erd-node-field" x="14" y="139">    session_open · session_close</text>
+                      <text class="erd-node-field" x="14" y="158">    instrument_type · reference_price</text>
+                      <text class="erd-node-field" x="14" y="177">    volatility_regime · liquidity_regime</text>
+                      <text class="erd-node-field" x="14" y="198">Unique per run and instrument</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(820 300)">
+                      <rect class="erd-node-bg" width="350" height="280" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 341 Q 350 0 350 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">order_state</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · order_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field erd-fk" x="14" y="114">FK  run_id · parent_order_id → order_state</text>
+                      <text class="erd-node-field" x="14" y="139">    participant_id · account_id · side</text>
+                      <text class="erd-node-field" x="14" y="158">    order_type · time_in_force · limit_price</text>
+                      <text class="erd-node-field" x="14" y="177">    original_qty · amended_qty_delta</text>
+                      <text class="erd-node-field" x="14" y="196">    filled_qty · cancelled_qty · remaining_qty</text>
+                      <text class="erd-node-field" x="14" y="215">    creation_timestamp · last_update_timestamp</text>
+                      <text class="erd-node-field" x="14" y="234">    status · queue_priority_timestamp</text>
+                      <text class="erd-node-field" x="14" y="260">    scenario_id (no FK to labels)</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(1260 320)">
+                      <rect class="erd-node-bg" width="320" height="300" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 311 Q 320 0 320 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">order_events</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · event_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field erd-fk" x="14" y="114">FK  run_id · order_id → order_state</text>
+                      <text class="erd-node-field erd-fk" x="14" y="133">FK  run_id · parent_order_id → order_state</text>
+                      <text class="erd-node-field" x="14" y="158">    event_timestamp · sequence_number</text>
+                      <text class="erd-node-field" x="14" y="177">    participant_id · account_id · event_type</text>
+                      <text class="erd-node-field" x="14" y="196">    price · order_qty · event_qty · remaining_qty</text>
+                      <text class="erd-node-field" x="14" y="215">    status · data_quality_flag · reason_code</text>
+                      <text class="erd-node-field" x="14" y="234">    trade_id · is_engine_generated</text>
+                      <text class="erd-node-field" x="14" y="253">    scenario_id (no FK to labels)</text>
+                      <text class="erd-node-field" x="14" y="278">Unique per run: sequence_number</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(40 700)">
+                      <rect class="erd-node-bg" width="370" height="220" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 361 Q 370 0 370 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">trades</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · trade_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field erd-fk" x="14" y="114">FK  run_id · buy_order_id → order_state</text>
+                      <text class="erd-node-field erd-fk" x="14" y="133">FK  run_id · sell_order_id → order_state</text>
+                      <text class="erd-node-field" x="14" y="158">    trade_timestamp · price · quantity</text>
+                      <text class="erd-node-field" x="14" y="177">    buy/sell_participant_id · aggressor_side</text>
+                      <text class="erd-node-field" x="14" y="196">    execution_status · scenario_id (no FK)</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(480 700)">
+                      <rect class="erd-node-bg" width="340" height="220" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 331 Q 340 0 340 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">book_snapshots</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · snapshot_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field" x="14" y="120">    snapshot_timestamp · sequence_number</text>
+                      <text class="erd-node-field" x="14" y="139">    best_bid/ask · spread · mid_price</text>
+                      <text class="erd-node-field" x="14" y="158">    bid/ask prices · depths · order_counts</text>
+                      <text class="erd-node-field" x="14" y="177">    bid_total_depth · ask_total_depth</text>
+                      <text class="erd-node-field" x="14" y="198">    book_status · data_quality_flag</text>
+                    </g>
+
+                    <g class="erd-node erd-analytics" transform="translate(910 700)">
+                      <rect class="erd-node-bg" width="410" height="220" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 401 Q 410 0 410 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">ANALYTICS</text>
+                      <text class="erd-node-title" x="14" y="29">surveillance_features</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · feature_row_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field" x="14" y="101">    feature_timestamp · observation_start/end</text>
+                      <text class="erd-node-field" x="14" y="120">    feature_name · feature_value_num/cat</text>
+                      <text class="erd-node-field" x="14" y="139">    entity_type · entity_id · feature_version</text>
+                      <text class="erd-node-field" x="14" y="158">    scoring_stage · data_quality_status · context</text>
+                      <text class="erd-node-field" x="14" y="181">    entity_id is polymorphic (not an FK)</text>
+                      <text class="erd-node-field" x="14" y="200">Unique natural key spans run + entity + window</text>
+                    </g>
+
+                    <text class="erd-relationship-count" x="42" y="970">Declared relationships are run-scoped. scenario_id, related ID arrays, trade_id on events, and polymorphic entity_id are not declared foreign keys.</text>
+                  </svg>
+                </div>
+                <div class="erd-note">
+                  <span><strong>Run isolation:</strong> every table belongs to quality.run_metadata by run_id.</span>
+                  <span><strong>Composite keys:</strong> child references include run_id so related records stay within a run.</span>
+                  <span><strong>Not FK-linked:</strong> scenario IDs, event trade IDs, manifest ID arrays, and polymorphic feature entity IDs.</span>
+                  <span><strong>Model boundary:</strong> model_input contains six label-free views, not physical tables.</span>
+                </div>
+              </div>
+              <div class="schema-view" id="table-view" hidden>
+                <div class="table-explorer-toolbar">
+                  <div>
+                    <h3 class="section-heading">Focused table relationships</h3>
+                    <p class="section-caption">A zoomed-in relationship graph for the selected table, including tables that reference it and tables it references.</p>
+                  </div>
+                  <label class="table-picker" for="table-select">
+                    <span>Select a table</span>
+                    <select id="table-select"></select>
+                  </label>
+                </div>
+                <div class="table-scope" id="table-scope"></div>
+                <div class="table-graph-legend" aria-label="Relationship direction legend">
+                  <span><i class="graph-legend-line"></i>Arrow points from the foreign-key table to the referenced table</span>
+                  <span><b class="key-tag">PK</b> Primary key</span>
+                  <span><b class="key-tag fk">FK</b> Foreign key</span>
+                </div>
+                <div class="table-graph-wrap" role="region" aria-label="Focused table relationship graph" tabindex="0">
+                  <div class="table-graph" id="table-graph"></div>
+                </div>
+                <div class="table-reference-note">
+                  <strong>Declared references only.</strong> Connections come from foreign keys defined by the database. A column such as <code>scenario_id</code>, an event <code>trade_id</code>, or a polymorphic <code>entity_id</code> is not shown unless the DDL declares it as a foreign key.
+                </div>
+              </div>

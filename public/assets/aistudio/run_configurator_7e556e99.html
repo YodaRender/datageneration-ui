@@ -1,0 +1,1558 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Run Configurator · Surveillance Studio</title>
+  <link rel="stylesheet" href="schema_studio.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0d12;
+      --panel: #111720;
+      --panel-raised: #151d28;
+      --border: #222d3a;
+      --text: #e8edf5;
+      --muted: #8895a7;
+      --subtle: #5d6b7c;
+      --accent: #a7f3d0;
+      --accent-strong: #34d399;
+      --accent-wash: rgba(52, 211, 153, .11);
+      --blue: #8db9ff;
+      --amber: #f5ca77;
+      --rose: #f0a0a0;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-width: 320px; color: var(--text); font: 14px/1.5 var(--sans);
+      background: radial-gradient(ellipse at 68% -20%, rgba(52, 211, 153, .08), transparent 43%), var(--bg);
+    }
+    button, select, input { font: inherit; }
+    .app { min-height: 100vh; }
+    .topbar {
+      height: 66px; padding: 0 30px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border); background: rgba(10, 13, 18, .86);
+    }
+    .brand, .topbar-right, .brand-mark, .breadcrumb, .schema-badge { display: flex; align-items: center; }
+    .brand { gap: 12px; font-size: 13px; font-weight: 650; }
+    .brand-mark {
+      width: 31px; height: 31px; justify-content: center; color: var(--accent); background: var(--accent-wash);
+      border: 1px solid rgba(52, 211, 153, .22); border-radius: 9px; font-size: 15px;
+    }
+    .topbar-right { gap: 18px; color: var(--muted); font-size: 12px; }
+    .live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%;
+      background: var(--accent-strong); box-shadow: 0 0 10px rgba(52, 211, 153, .45); }
+    .live-dot.busy { background: var(--amber); box-shadow: 0 0 10px rgba(245, 202, 119, .45); }
+    .top-pill, .schema-badge, .tag {
+      border: 1px solid var(--border); border-radius: 999px; padding: 5px 10px; font-size: 11px;
+      color: var(--muted); background: rgba(255,255,255,.025);
+    }
+    .layout { display: grid; grid-template-columns: 288px minmax(0, 1fr); min-height: calc(100vh - 66px); }
+    .sidebar {
+      position: sticky; top: 0; display: flex; flex-direction: column; height: calc(100vh - 66px);
+      min-height: 0; padding: 20px 12px 14px; border-right: 1px solid var(--border);
+      background: rgba(14, 19, 26, .72);
+    }
+    .sidebar-title { margin: 0 9px 4px; font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      color: var(--subtle); text-transform: uppercase; }
+    .sidebar-caption { margin: 0 9px 13px; color: var(--muted); font-size: 11px; }
+    .scenario-list {
+      display: grid; align-content: start; gap: 7px; flex: 1; min-height: 0; overflow-y: auto;
+      padding: 2px 3px 10px 0; scrollbar-color: #344252 transparent; scrollbar-width: thin;
+    }
+    .run-nav {
+      width: 100%; min-height: 40px; padding: 8px 10px; display: flex; gap: 10px; align-items: center;
+      text-align: left; color: #b7c3d0; background: rgba(255,255,255,.012); border: 1px solid rgba(34,45,58,.78);
+      border-radius: 8px; cursor: pointer;
+    }
+    .run-nav[aria-current="true"], .scenario-button[aria-current="true"] {
+      color: var(--accent); background: var(--accent-wash); border-color: rgba(52, 211, 153, .16);
+    }
+    .scenario-group { overflow: hidden; border: 1px solid rgba(34,45,58,.78); border-radius: 8px;
+      background: rgba(255,255,255,.012); }
+    .scenario-group-heading {
+      display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 7px 9px; color: #b7c4d0;
+      cursor: pointer; list-style: none; font-size: 9px; font-weight: 700; letter-spacing: .065em;
+      text-transform: uppercase;
+    }
+    .scenario-group-heading::-webkit-details-marker { display: none; }
+    .scenario-group-heading::before { content: "+"; color: var(--accent-strong); font: 13px var(--mono); }
+    .scenario-group[open] .scenario-group-heading::before { content: "−"; }
+    .scenario-group-title { flex: 1; }
+    .scenario-group-count { padding: 2px 6px; color: var(--muted); border: 1px solid var(--border);
+      border-radius: 999px; font: 9px var(--mono); }
+    .scenario-group-items { display: grid; gap: 2px; padding: 0 5px 6px; }
+    .scenario-button {
+      width: 100%; min-height: 34px; padding: 5px 7px; display: flex; gap: 8px; align-items: center;
+      text-align: left; color: #aab5c3; background: transparent; border: 1px solid transparent;
+      border-radius: 6px; cursor: pointer;
+    }
+    .scenario-button:hover, .run-nav:hover { color: var(--text); background: rgba(255,255,255,.045); }
+    .scenario-code { width: 31px; flex: 0 0 31px; color: var(--subtle); font: 10px var(--mono); }
+    .scenario-button[aria-current="true"] .scenario-code { color: var(--accent-strong); }
+    .scenario-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .scenario-role-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #e6b95e; }
+    .scenario-role-dot.positive { background: var(--accent-strong); }
+    .count-chip { color: var(--muted); font: 9px var(--mono); }
+    .sidebar-footer { margin: 10px 4px 0; padding-top: 10px; border-top: 1px solid var(--border);
+      color: var(--subtle); font-size: 10px; line-height: 1.55; }
+    main { min-width: 0; padding: 27px clamp(18px, 4vw, 54px) 50px; }
+    .content { width: min(1110px, 100%); margin: 0 auto; }
+    .breadcrumb { gap: 8px; margin-bottom: 22px; color: var(--subtle); font-size: 12px; }
+    .breadcrumb-current { color: #c6d0dd; }
+    .hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .eyebrow { margin-bottom: 8px; color: var(--accent-strong); font-size: 10px; font-weight: 750;
+      letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 0; font-size: clamp(24px, 3vw, 34px); line-height: 1.18; letter-spacing: -.035em; }
+    .hero-description { max-width: 680px; margin: 10px 0 0; color: var(--muted); font-size: 13px; }
+    .schema-badge { flex: 0 0 auto; gap: 8px; margin-top: 3px; padding: 8px 12px; color: var(--accent);
+      border-color: rgba(52, 211, 153, .24); background: var(--accent-wash); }
+    .metadata-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 25px 0 24px; }
+    .metadata-card { min-width: 0; padding: 15px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 9px; }
+    .metadata-label { display: block; margin-bottom: 9px; color: var(--subtle); font-size: 10px; font-weight: 700;
+      letter-spacing: .09em; text-transform: uppercase; }
+    .metadata-value { display: block; overflow: hidden; color: #dce5ef; font-size: 13px; font-weight: 580;
+      text-overflow: ellipsis; white-space: nowrap; }
+    .workspace { overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: rgba(17, 23, 32, .88); }
+    .tab-list { min-height: 52px; display: flex; align-items: center; gap: 4px; padding: 0 15px;
+      border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .tab { position: relative; align-self: stretch; padding: 0 13px; color: var(--muted); background: transparent;
+      border: 0; cursor: pointer; font-size: 12px; white-space: nowrap; }
+    .tab[aria-selected="true"] { color: var(--accent); }
+    .tab[aria-selected="true"]::after {
+      position: absolute; right: 12px; bottom: -1px; left: 12px; height: 2px; content: "";
+      background: var(--accent-strong); border-radius: 2px 2px 0 0;
+    }
+    .panel { padding: clamp(17px, 3vw, 27px); }
+    .panel[hidden], [hidden] { display: none !important; }
+    .section-heading { margin: 0 0 5px; font-size: 15px; font-weight: 650; }
+    .section-caption { margin: 0; color: var(--muted); font-size: 12px; }
+    .button {
+      padding: 7px 11px; color: #d2dbe5; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--panel-raised); cursor: pointer; font-size: 11px;
+    }
+    .button:hover { border-color: #3a4b5e; background: #1a2532; }
+    .button.primary { color: #062018; background: var(--accent-strong); border-color: #2bb886; font-weight: 650; }
+    .button.primary:hover { background: #5ee6b2; }
+    .button:disabled { opacity: .45; cursor: not-allowed; }
+    .schema-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .tag { padding: 4px 8px; font: 10px var(--mono); }
+    .tag-accent { color: var(--accent); border-color: rgba(52,211,153,.2); }
+    .tag-amber { color: var(--amber); border-color: rgba(245,202,119,.22); }
+    .tag-muted { color: var(--subtle); }
+    .controls-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    .control-card { padding: 18px; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.018); }
+    .control-card .card-label { margin: 0 0 4px; color: var(--subtle); font-size: 10px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase; }
+    .control-card-sub { margin: 0 0 6px; color: var(--muted); font-size: 11px; }
+    .knob { padding: 13px 0 12px; border-top: 1px solid rgba(34,45,58,.7); }
+    .knob:first-of-type { border-top: 0; }
+    .knob.is-disabled { opacity: .55; }
+    .knob-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .knob-name { color: #dce5ef; font-size: 12px; font-weight: 600; }
+    .knob-value { color: var(--accent); font: 11px var(--mono); white-space: nowrap; }
+    .knob-key { margin-top: 1px; color: var(--subtle); font: 9px var(--mono); }
+    .knob-hint { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .slider-wrap { position: relative; height: 18px; margin-top: 9px; }
+    .slider-wrap::before { content: ""; position: absolute; top: 6px; left: 0; right: 0; height: 5px;
+      background: #222c38; border-radius: 99px; }
+    .slider-fill { position: absolute; top: 6px; height: 5px; background: linear-gradient(90deg, #168c68, #5ee6b2);
+      border-radius: 99px; pointer-events: none; }
+    .slider-wrap input[type=range] {
+      position: absolute; inset: 0; width: 100%; height: 18px; margin: 0; background: transparent;
+      -webkit-appearance: none; appearance: none; pointer-events: none;
+    }
+    .slider-wrap input[type=range]::-webkit-slider-runnable-track { background: transparent; height: 18px; }
+    .slider-wrap input[type=range]::-moz-range-track { background: transparent; height: 18px; }
+    .slider-wrap input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; margin-top: 2px; pointer-events: auto; cursor: grab;
+      background: var(--accent-strong); border: 2px solid #0a0d12; border-radius: 50%;
+    }
+    .slider-wrap input[type=range]::-moz-range-thumb {
+      width: 10px; height: 10px; pointer-events: auto; cursor: grab; background: var(--accent-strong);
+      border: 2px solid #0a0d12; border-radius: 50%;
+    }
+    .slider-bounds { display: flex; justify-content: space-between; color: var(--subtle); font: 9px var(--mono); }
+    .field { padding: 13px 0 12px; border-top: 1px solid rgba(34,45,58,.7); }
+    .field:first-of-type { border-top: 0; }
+    .field-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .field input[type=text], .field input[type=number], .field input[type=date], .field select {
+      width: min(220px, 48%); padding: 7px 9px; color: var(--text); border: 1px solid var(--border);
+      border-radius: 6px; background: #0c1118; font: 12px var(--mono);
+    }
+    .toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .notice, .fixed-note {
+      margin-top: 16px; padding: 12px 14px; color: #bdc8d5; border: 1px solid rgba(141,185,255,.15);
+      border-radius: 8px; background: rgba(141,185,255,.045); font-size: 11px;
+    }
+    .notice strong, .fixed-note strong { color: var(--blue); }
+    .fixed-note { border-style: dashed; background: transparent; }
+    .taxonomy-card {
+      margin-top: 16px; padding: 16px 18px; border: 1px solid rgba(52,211,153,.16); border-radius: 9px;
+      background: linear-gradient(110deg, rgba(52,211,153,.055), rgba(255,255,255,.012));
+    }
+    .taxonomy-title { margin: 0; color: var(--accent); font-size: 10px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+    .taxonomy-family { margin: 6px 0 0; font-size: 14px; font-weight: 620; }
+    .taxonomy-subtitle { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .taxonomy-role {
+      display: inline-flex; margin-top: 11px; padding: 4px 8px; color: var(--accent);
+      border: 1px solid rgba(52,211,153,.19); border-radius: 999px; background: var(--accent-wash); font-size: 10px;
+    }
+    .taxonomy-role.control { color: #f0bf6b; border-color: rgba(240,191,107,.2); background: rgba(240,191,107,.055); }
+    .constraint-list { display: grid; gap: 9px; margin: 14px 0 0; padding: 0; list-style: none; }
+    .constraint-list li { display: flex; gap: 9px; color: #b7c2cf; font-size: 12px; }
+    .constraint-mark { color: var(--accent-strong); }
+    .tl-track { position: relative; display: flex; height: 26px; margin-top: 12px; overflow: hidden;
+      border: 1px solid var(--border); border-radius: 6px; background: #0b1017; }
+    .tl-warm, .tl-cool { background: repeating-linear-gradient(135deg, rgba(136,149,167,.14) 0 4px, transparent 4px 8px); }
+    .tl-active { position: relative; background: var(--accent-wash); }
+    .tl-mark { position: absolute; top: 5px; width: 3px; height: 14px; margin-left: -1px; border-radius: 2px; background: var(--accent-strong); }
+    .tl-legend { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin-top: 8px;
+      color: var(--muted); font-size: 10px; }
+    .tl-warn { color: var(--amber); }
+    .run-bar {
+      position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; gap: 12px; margin-top: 18px; padding: 14px 16px;
+      border: 1px solid var(--border); border-radius: 10px; background: rgba(12, 18, 25, .96);
+    }
+    .log-box {
+      margin-top: 14px; max-height: 220px; overflow: auto; padding: 12px 14px; border: 1px solid var(--border);
+      border-radius: 8px; background: #0b1017; color: #cbd6e3; font: 11px/1.7 var(--mono); white-space: pre-wrap;
+    }
+    .result-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .code-wrap { overflow: auto; margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; background: #0b1017; }
+    pre { margin: 0; padding: 16px 18px; color: #cbd6e3; font: 11px/1.7 var(--mono); }
+    .code-comment { color: #718198; }
+    .code-name { color: #abdfc7; }
+    .code-type { color: #e2bb79; }
+    .inst-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+    .inst-table th, .inst-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+    .inst-table th { color: var(--subtle); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+    .inst-table input, .inst-table select { width: 100%; padding: 5px 6px; color: var(--text); border: 1px solid var(--border);
+      border-radius: 5px; background: #0c1118; font: 11px var(--mono); }
+    .toast { position: fixed; right: 22px; bottom: 22px; z-index: 3; padding: 10px 14px; color: #dcfced;
+      border: 1px solid rgba(52,211,153,.24); border-radius: 8px; background: #13231e; font-size: 12px;
+      opacity: 0; transform: translateY(8px); pointer-events: none; transition: .18s ease; }
+    .toast.visible { opacity: 1; transform: translateY(0); }
+    .toast.error { color: #ffd6d6; border-color: rgba(240,160,160,.3); background: #2a1616; }
+    .type-button {
+      width: 100%; padding: 10px 11px; display: flex; gap: 10px; align-items: center; text-align: left;
+      color: #b7c3d0; cursor: pointer; border: 1px solid rgba(34,45,58,.78); border-radius: 8px;
+      background: rgba(255,255,255,.012);
+    }
+    .type-button[aria-current="true"] { color: var(--accent); background: var(--accent-wash); border-color: rgba(52,211,153,.2); }
+    .type-mark { color: var(--accent-strong); }
+    .type-name { flex: 1; font-size: 12px; font-weight: 650; }
+    .empty-state {
+      display: grid; justify-items: center; gap: 6px; padding: 80px 24px; text-align: center;
+      border: 1px dashed var(--border); border-radius: 11px; background: rgba(17,23,32,.5);
+    }
+    .empty-mark {
+      width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
+      color: var(--accent); background: var(--accent-wash); border: 1px solid rgba(52,211,153,.22); border-radius: 12px;
+    }
+    .empty-state h1 { font-size: 20px; }
+    .empty-state p { max-width: 420px; margin: 0; color: var(--muted); font-size: 12px; }
+    .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 10px; margin-top: 12px; }
+    .scenario-card {
+      min-width: 0; padding: 14px 15px; display: flex; flex-direction: column; gap: 8px; text-align: left;
+      color: var(--text); cursor: pointer; border: 1px solid var(--border); border-radius: 9px; background: rgba(255,255,255,.018);
+    }
+    .scenario-card:hover { background: var(--accent-wash); border-color: rgba(52,211,153,.3); }
+    .card-top, .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .card-code { color: var(--accent-strong); font: 11px var(--mono); }
+    .card-name { font-size: 13px; font-weight: 620; }
+    .card-rule { margin: 0; color: var(--muted); font-size: 11px; }
+    .group-heading { display: flex; align-items: center; gap: 10px; margin: 22px 0 4px; color: #b7c3d0;
+      font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+    .group-heading::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .schema-actions { display: flex; gap: 8px; }
+    #type-view[hidden], #empty-state[hidden], #scenario-list-view[hidden] { display: none !important; }
+    .preset-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 16px; }
+    .schema-view-tabs { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border);
+      border-radius: 8px; background: #0c1118; }
+    .schema-view-tab {
+      padding: 7px 12px; color: var(--muted); border: 1px solid transparent; border-radius: 5px;
+      background: transparent; cursor: pointer; font-size: 11px;
+    }
+    .schema-view-tab[aria-pressed="true"] { color: var(--accent); border-color: rgba(52,211,153,.17); background: var(--accent-wash); }
+    .controls-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .metadata-grid, .controls-grid, .result-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">⌘</div>
+        <span>Surveillance Studio</span>
+      </div>
+      <div class="topbar-right">
+        <span><span class="live-dot" id="live-dot"></span><span id="live-label">Generator console</span></span>
+        <span class="top-pill" id="conn-pill">Connecting…</span>
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar" aria-label="Market abuse type">
+        <h2 class="sidebar-title">Market abuse type</h2>
+        <p class="sidebar-caption">1 type available</p>
+        <nav class="scenario-list" id="type-list"></nav>
+        <div class="sidebar-footer">Spoofing and layering opens onto the shared master schema, then run settings and the scenario library.</div>
+      </aside>
+      <main>
+        <div class="content">
+          <div class="breadcrumb" id="breadcrumb"></div>
+          <section class="empty-state" id="empty-state">
+            <div class="empty-mark" aria-hidden="true">◈</div>
+            <h1>Select a market abuse type</h1>
+            <p>Choose Spoofing and layering to open its master schema, run settings, and scenario library.</p>
+          </section>
+          <div id="type-view" hidden>
+            <div class="hero">
+              <div>
+                <div class="eyebrow">Market abuse type</div>
+                <h1>Spoofing and layering</h1>
+                <p class="hero-description">Order-book patterns, layered depth, and the benign look-alikes beside them. The schema is shared. Run settings are the YAML knobs that drive this generator.</p>
+              </div>
+              <div class="schema-badge"><span aria-hidden="true">◈</span><span>SCHEMA · RUN · SCENARIOS</span></div>
+            </div>
+            <div class="metadata-grid">
+              <article class="metadata-card"><span class="metadata-label">Seed</span><span class="metadata-value" id="m-seed">—</span></article>
+              <article class="metadata-card"><span class="metadata-label">Session</span><span class="metadata-value" id="m-session">—</span></article>
+              <article class="metadata-card"><span class="metadata-label">Instances</span><span class="metadata-value" id="m-inst">—</span></article>
+              <article class="metadata-card"><span class="metadata-label">Difficulty</span><span class="metadata-value" id="m-diff">—</span></article>
+            </div>
+            <section class="workspace" aria-label="Type windows">
+              <div class="tab-list" role="tablist" aria-label="Type windows">
+                <button class="tab window-tab" data-window="schema" aria-selected="true" type="button">Schema</button>
+                <button class="tab window-tab" data-window="run" aria-selected="false" type="button">Run settings</button>
+                <button class="tab window-tab" data-window="scenarios" aria-selected="false" type="button">Scenarios</button>
+              </div>
+              <section class="panel" id="panel-window-schema">
+              <div class="schema-toolbar">
+                <div>
+                  <h2 class="section-heading">Shared master schema</h2>
+                  <p class="section-caption">The real project DDL and foreign-key relationships, unchanged across use cases.</p>
+                </div>
+                <div class="schema-actions">
+                  <button class="button" id="copy-sql" type="button">Copy all SQL</button>
+                  <button class="button" id="export-sql" type="button">Export master schema</button>
+                </div>
+              </div>
+              <div class="schema-meta">
+                <span class="tag tag-accent">MIGRATIONS 001–010</span>
+                <span class="tag">POSTGRESQL</span>
+                <span class="tag">5 SCHEMAS</span>
+                <span class="tag">9 TABLES · 6 MODEL VIEWS</span>
+              </div>
+              <div class="schema-context">
+                <span>Viewing schema for</span>
+                <strong>Spoofing and layering</strong>
+                <span>· same DDL and ERD for every scenario in this type</span>
+              </div>
+              <div class="schema-view-tabs" role="group" aria-label="Schema view">
+                <button class="schema-view-tab" id="ddl-view-button" type="button" aria-pressed="true">Full schema DDL</button>
+                <button class="schema-view-tab" id="erd-view-button" type="button" aria-pressed="false">Graphical ER diagram</button>
+                <button class="schema-view-tab" id="table-view-button" type="button" aria-pressed="false">Explore one table</button>
+              </div>
+
+              <div class="schema-view" id="ddl-view">
+                <p class="schema-footnote">Every migration section is embedded in this standalone page. Expand a section to inspect its complete SQL; use Copy all SQL or Export master schema for the combined DDL.</p>
+                <div class="schema-sections" id="schema-sections"></div>
+              </div>
+
+              <div class="schema-view" id="erd-view" hidden>
+                <div class="erd-toolbar">
+                  <div>
+                    <h3 class="section-heading">Entity relationships</h3>
+                    <p class="section-caption">Solid arrows represent declared foreign keys from child rows to their referenced parent keys.</p>
+                  </div>
+                  <div class="erd-legend" aria-label="Schema layer legend">
+                    <span class="legend-item"><i class="legend-dot legend-core"></i>Core</span>
+                    <span class="legend-item"><i class="legend-dot legend-quality"></i>Quality</span>
+                    <span class="legend-item"><i class="legend-dot legend-labels"></i>Labels</span>
+                    <span class="legend-item"><i class="legend-dot legend-analytics"></i>Analytics</span>
+                  </div>
+                </div>
+                <div class="erd-wrap" role="region" aria-label="Scrollable entity relationship diagram" tabindex="0">
+                  <svg class="erd-canvas" viewBox="0 0 1640 1010" role="img" aria-labelledby="erd-title erd-description">
+                    <title id="erd-title">Master schema entity relationship diagram</title>
+                    <desc id="erd-description">Nine tables across quality, core, labels, and analytics. Arrows point from referenced parent tables to rows carrying the foreign key. Scenario IDs and polymorphic feature entity IDs are not foreign keys.</desc>
+                    <defs>
+                      <marker id="erd-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#77cdb0"></path>
+                      </marker>
+                    </defs>
+                    <g aria-hidden="true">
+                      <path class="erd-arrow erd-arrow-soft" d="M 930 100 H 1160"></path>
+                      <text class="erd-arrow-label" x="1008" y="91">run_id</text>
+
+                      <path class="erd-arrow erd-arrow-soft" d="M 655 160 V 220 H 240 V 290"></path>
+                      <text class="erd-arrow-label" x="380" y="212">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 755 160 V 258 H 600 V 330"></path>
+                      <text class="erd-arrow-label" x="615" y="251">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 835 160 V 225 H 1010 V 290"></path>
+                      <text class="erd-arrow-label" x="917" y="217">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 930 145 H 945 V 205 H 1530 V 240 H 1420 V 320"></path>
+                      <text class="erd-arrow-label" x="1320" y="197">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 610 90 H 15 V 950 H 225 V 920"></path>
+                      <text class="erd-arrow-label" x="25" y="620" transform="rotate(90 25 620)">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 780 160 V 670 H 650 V 700"></path>
+                      <text class="erd-arrow-label" x="666" y="667">run_id</text>
+                      <path class="erd-arrow erd-arrow-soft" d="M 930 145 H 945 V 195 H 1600 V 665 H 1320 V 700"></path>
+                      <text class="erd-arrow-label" x="1460" y="655">run_id</text>
+                      <path class="erd-arrow" d="M 440 388 H 380"></path>
+                      <text class="erd-arrow-label" x="383" y="378">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 760 408 H 820"></path>
+                      <text class="erd-arrow-label" x="763" y="398">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 760 468 H 785 V 635 H 1240 V 468 H 1260"></path>
+                      <text class="erd-arrow-label" x="900" y="627">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 465 540 V 635 H 260 V 700"></path>
+                      <text class="erd-arrow-label" x="320" y="627">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 680 540 V 700"></path>
+                      <text class="erd-arrow-label" x="687" y="625" transform="rotate(90 687 625)">run_id, instrument_id</text>
+                      <path class="erd-arrow" d="M 1170 415 H 1260"></path>
+                      <text class="erd-arrow-label" x="1177" y="405">run_id, order_id</text>
+                      <path class="erd-arrow" d="M 1170 480 H 1200 V 600 H 1238 V 475 H 1260"></path>
+                      <text class="erd-arrow-label" x="1176" y="593">run_id, parent_order_id</text>
+
+                      <path class="erd-arrow" d="M 820 470 H 790 V 650 H 350 V 700"></path>
+                      <text class="erd-arrow-label" x="580" y="642">run_id, buy_order_id</text>
+                      <path class="erd-arrow" d="M 820 495 H 780 V 670 H 390 V 700"></path>
+                      <text class="erd-arrow-label" x="570" y="664">run_id, sell_order_id</text>
+                      <path class="erd-arrow" d="M 1145 300 C 1195 250, 1240 285, 1220 325 C 1210 345, 1192 345, 1170 345"></path>
+                      <text class="erd-arrow-label" x="1177" y="271">parent_order_id · self-FK</text>
+                    </g>
+
+                    <g class="erd-node erd-quality" transform="translate(610 32)">
+                      <rect class="erd-node-bg" width="320" height="128" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 311 Q 320 0 320 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">QUALITY</text>
+                      <text class="erd-node-title" x="14" y="29">run_metadata</text>
+                      <text class="erd-node-field erd-key" x="14" y="55">PK  run_id</text>
+                      <text class="erd-node-field" x="14" y="72">    random_seed · config_version</text>
+                      <text class="erd-node-field" x="14" y="89">    generator_version · scenario_version</text>
+                      <text class="erd-node-field" x="14" y="106">    config_hash · config_json · status</text>
+                      <text class="erd-node-field" x="14" y="121">    created_at</text>
+                    </g>
+
+                    <g class="erd-node erd-quality" transform="translate(1160 40)">
+                      <rect class="erd-node-bg" width="350" height="145" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 341 Q 350 0 350 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">QUALITY</text>
+                      <text class="erd-node-title" x="14" y="29">validation_results</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · result_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field" x="14" y="95">    check_id · requirement_id · scope</text>
+                      <text class="erd-node-field" x="14" y="114">    scenario_id · status · message</text>
+                      <text class="erd-node-field" x="14" y="133">    details · created_at</text>
+                    </g>
+
+                    <g class="erd-node erd-labels" transform="translate(40 290)">
+                      <rect class="erd-node-bg" width="340" height="265" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 331 Q 340 0 340 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">LABELS</text>
+                      <text class="erd-node-title" x="14" y="29">scenario_manifest</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · scenario_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field" x="14" y="120">    scenario_type · scenario_version</text>
+                      <text class="erd-node-field" x="14" y="139">    start_timestamp · end_timestamp</text>
+                      <text class="erd-node-field" x="14" y="158">    related_order_ids · related_event_ids</text>
+                      <text class="erd-node-field" x="14" y="177">    related_trade_ids · intended_pattern</text>
+                      <text class="erd-node-field" x="14" y="196">    ground_truth_label · pattern_class</text>
+                      <text class="erd-node-field" x="14" y="215">    event_association · evaluation_label</text>
+                      <text class="erd-node-field" x="14" y="234">    acceptance_criterion · validation_status</text>
+                      <text class="erd-node-field" x="14" y="253">    validation_reason · random_seed</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(440 330)">
+                      <rect class="erd-node-bg" width="320" height="210" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 311 Q 320 0 320 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">instrument_master</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · instrument_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field" x="14" y="101">    symbol · exchange · currency</text>
+                      <text class="erd-node-field" x="14" y="120">    tick_size · lot_size · price_bands</text>
+                      <text class="erd-node-field" x="14" y="139">    session_open · session_close</text>
+                      <text class="erd-node-field" x="14" y="158">    instrument_type · reference_price</text>
+                      <text class="erd-node-field" x="14" y="177">    volatility_regime · liquidity_regime</text>
+                      <text class="erd-node-field" x="14" y="198">Unique per run and instrument</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(820 300)">
+                      <rect class="erd-node-bg" width="350" height="280" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 341 Q 350 0 350 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">order_state</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · order_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field erd-fk" x="14" y="114">FK  run_id · parent_order_id → order_state</text>
+                      <text class="erd-node-field" x="14" y="139">    participant_id · account_id · side</text>
+                      <text class="erd-node-field" x="14" y="158">    order_type · time_in_force · limit_price</text>
+                      <text class="erd-node-field" x="14" y="177">    original_qty · amended_qty_delta</text>
+                      <text class="erd-node-field" x="14" y="196">    filled_qty · cancelled_qty · remaining_qty</text>
+                      <text class="erd-node-field" x="14" y="215">    creation_timestamp · last_update_timestamp</text>
+                      <text class="erd-node-field" x="14" y="234">    status · queue_priority_timestamp</text>
+                      <text class="erd-node-field" x="14" y="260">    scenario_id (no FK to labels)</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(1260 320)">
+                      <rect class="erd-node-bg" width="320" height="300" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 311 Q 320 0 320 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">order_events</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · event_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field erd-fk" x="14" y="114">FK  run_id · order_id → order_state</text>
+                      <text class="erd-node-field erd-fk" x="14" y="133">FK  run_id · parent_order_id → order_state</text>
+                      <text class="erd-node-field" x="14" y="158">    event_timestamp · sequence_number</text>
+                      <text class="erd-node-field" x="14" y="177">    participant_id · account_id · event_type</text>
+                      <text class="erd-node-field" x="14" y="196">    price · order_qty · event_qty · remaining_qty</text>
+                      <text class="erd-node-field" x="14" y="215">    status · data_quality_flag · reason_code</text>
+                      <text class="erd-node-field" x="14" y="234">    trade_id · is_engine_generated</text>
+                      <text class="erd-node-field" x="14" y="253">    scenario_id (no FK to labels)</text>
+                      <text class="erd-node-field" x="14" y="278">Unique per run: sequence_number</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(40 700)">
+                      <rect class="erd-node-bg" width="370" height="220" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 361 Q 370 0 370 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">trades</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · trade_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field erd-fk" x="14" y="114">FK  run_id · buy_order_id → order_state</text>
+                      <text class="erd-node-field erd-fk" x="14" y="133">FK  run_id · sell_order_id → order_state</text>
+                      <text class="erd-node-field" x="14" y="158">    trade_timestamp · price · quantity</text>
+                      <text class="erd-node-field" x="14" y="177">    buy/sell_participant_id · aggressor_side</text>
+                      <text class="erd-node-field" x="14" y="196">    execution_status · scenario_id (no FK)</text>
+                    </g>
+
+                    <g class="erd-node erd-core" transform="translate(480 700)">
+                      <rect class="erd-node-bg" width="340" height="220" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 331 Q 340 0 340 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">CORE</text>
+                      <text class="erd-node-title" x="14" y="29">book_snapshots</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · snapshot_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field erd-fk" x="14" y="95">FK  run_id · instrument_id → instrument_master</text>
+                      <text class="erd-node-field" x="14" y="120">    snapshot_timestamp · sequence_number</text>
+                      <text class="erd-node-field" x="14" y="139">    best_bid/ask · spread · mid_price</text>
+                      <text class="erd-node-field" x="14" y="158">    bid/ask prices · depths · order_counts</text>
+                      <text class="erd-node-field" x="14" y="177">    bid_total_depth · ask_total_depth</text>
+                      <text class="erd-node-field" x="14" y="198">    book_status · data_quality_flag</text>
+                    </g>
+
+                    <g class="erd-node erd-analytics" transform="translate(910 700)">
+                      <rect class="erd-node-bg" width="410" height="220" rx="9"></rect>
+                      <path class="erd-node-header" d="M 9 0 H 401 Q 410 0 410 9 V 35 H 0 V 9 Q 0 0 9 0" rx="9"></path>
+                      <text class="erd-node-schema" x="14" y="14">ANALYTICS</text>
+                      <text class="erd-node-title" x="14" y="29">surveillance_features</text>
+                      <text class="erd-node-field erd-key" x="14" y="57">PK  run_id · feature_row_id</text>
+                      <text class="erd-node-field erd-fk" x="14" y="76">FK  run_id → run_metadata</text>
+                      <text class="erd-node-field" x="14" y="101">    feature_timestamp · observation_start/end</text>
+                      <text class="erd-node-field" x="14" y="120">    feature_name · feature_value_num/cat</text>
+                      <text class="erd-node-field" x="14" y="139">    entity_type · entity_id · feature_version</text>
+                      <text class="erd-node-field" x="14" y="158">    scoring_stage · data_quality_status · context</text>
+                      <text class="erd-node-field" x="14" y="181">    entity_id is polymorphic (not an FK)</text>
+                      <text class="erd-node-field" x="14" y="200">Unique natural key spans run + entity + window</text>
+                    </g>
+
+                    <text class="erd-relationship-count" x="42" y="970">Declared relationships are run-scoped. scenario_id, related ID arrays, trade_id on events, and polymorphic entity_id are not declared foreign keys.</text>
+                  </svg>
+                </div>
+                <div class="erd-note">
+                  <span><strong>Run isolation:</strong> every table belongs to quality.run_metadata by run_id.</span>
+                  <span><strong>Composite keys:</strong> child references include run_id so related records stay within a run.</span>
+                  <span><strong>Not FK-linked:</strong> scenario IDs, event trade IDs, manifest ID arrays, and polymorphic feature entity IDs.</span>
+                  <span><strong>Model boundary:</strong> model_input contains six label-free views, not physical tables.</span>
+                </div>
+              </div>
+              <div class="schema-view" id="table-view" hidden>
+                <div class="table-explorer-toolbar">
+                  <div>
+                    <h3 class="section-heading">Focused table relationships</h3>
+                    <p class="section-caption">A zoomed-in relationship graph for the selected table, including tables that reference it and tables it references.</p>
+                  </div>
+                  <label class="table-picker" for="table-select">
+                    <span>Select a table</span>
+                    <select id="table-select"></select>
+                  </label>
+                </div>
+                <div class="table-scope" id="table-scope"></div>
+                <div class="table-graph-legend" aria-label="Relationship direction legend">
+                  <span><i class="graph-legend-line"></i>Arrow points from the foreign-key table to the referenced table</span>
+                  <span><b class="key-tag">PK</b> Primary key</span>
+                  <span><b class="key-tag fk">FK</b> Foreign key</span>
+                </div>
+                <div class="table-graph-wrap" role="region" aria-label="Focused table relationship graph" tabindex="0">
+                  <div class="table-graph" id="table-graph"></div>
+                </div>
+                <div class="table-reference-note">
+                  <strong>Declared references only.</strong> Connections come from foreign keys defined by the database. A column such as <code>scenario_id</code>, an event <code>trade_id</code>, or a polymorphic <code>entity_id</code> is not shown unless the DDL declares it as a foreign key.
+                </div>
+              </div>
+
+              </section>
+              <section class="panel" id="panel-window-run" hidden>
+<section class="workspace">
+              <div class="tab-list" role="tablist">
+                <button class="tab" data-tab="session" aria-selected="true">Session &amp; market</button>
+                <button class="tab" data-tab="rates">Baseline activity</button>
+                <button class="tab" data-tab="book">Book &amp; features</button>
+                <button class="tab" data-tab="scenario">Shared scenario</button>
+                <button class="tab" data-tab="regimes">Regimes</button>
+                <button class="tab" data-tab="output">Launch</button>
+              </div>
+              <section class="panel" id="panel-session">
+                <div class="controls-grid">
+                  <article class="control-card" id="card-session"></article>
+                  <article class="control-card" id="card-market"></article>
+                </div>
+                <article class="control-card" style="margin-top:14px">
+                  <p class="card-label">Instruments</p>
+                  <p class="control-card-sub"><code>instrument_count</code> takes the first N rows. Per-instrument conventions are written back into the override list for this run only.</p>
+                  <div id="inst-wrap"></div>
+                </article>
+              </section>
+              <section class="panel" id="panel-rates" hidden></section>
+              <section class="panel" id="panel-book" hidden></section>
+              <section class="panel" id="panel-scenario" hidden></section>
+              <section class="panel" id="panel-regimes" hidden></section>
+              <section class="panel" id="panel-output" hidden></section>
+            </section>
+            <div class="run-bar">
+              <div>
+                <div class="section-heading" style="font-size:13px">Generate with these overrides</div>
+                <p class="section-caption" id="capacity-line">Validate capacity before a long run.</p>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="button" id="btn-validate" type="button">Validate config</button>
+                <button class="button" id="btn-yaml" type="button">Reset to YAML</button>
+                <button class="button primary" id="btn-run" type="button">Run generation</button>
+              </div>
+            </div>
+            <div class="log-box" id="log" hidden></div>
+            <div id="result" hidden></div>
+              </section>
+              <section class="panel" id="panel-window-scenarios" hidden>
+                <div id="scenario-list-view">
+                  <h2 class="section-heading">Scenario library</h2>
+                  <p class="section-caption">Sixteen scripts. Instance count is the only per-type setting. Shared knobs live on the scenario and on Run settings.</p>
+                  <div id="scenario-groups"></div>
+                </div>
+<div id="scenario-view" hidden>
+            <button class="button back-button" id="back-scenarios" type="button">← All scenarios</button>
+            <div class="hero detail-hero">
+              <div>
+                <div class="eyebrow" id="sc-eyebrow"></div>
+                <h1 id="sc-title"></h1>
+                <p class="hero-description" id="sc-desc"></p>
+              </div>
+              <div class="schema-badge"><span aria-hidden="true">◈</span><span>SCENARIO + SHARED KNOBS</span></div>
+            </div>
+            <div class="metadata-grid">
+              <article class="metadata-card"><span class="metadata-label">Role</span><span class="metadata-value" id="sc-role"></span></article>
+              <article class="metadata-card"><span class="metadata-label">Instances this run</span><span class="metadata-value" id="sc-n"></span></article>
+              <article class="metadata-card"><span class="metadata-label">Shared knobs that apply</span><span class="metadata-value" id="sc-knobs"></span></article>
+              <article class="metadata-card"><span class="metadata-label">Script</span><span class="metadata-value" id="sc-script"></span></article>
+            </div>
+            <article class="taxonomy-card">
+              <h3 class="taxonomy-title">What this type does</h3>
+              <p class="taxonomy-family" id="sc-family"></p>
+              <p class="taxonomy-subtitle" id="sc-cat"></p>
+              <span class="taxonomy-role" id="sc-tax-role"></span>
+              <ul class="constraint-list" id="sc-fixed"></ul>
+            </article>
+            <section class="workspace" style="margin-top:18px">
+              <div class="panel">
+                <div class="controls-head">
+                  <div>
+                    <h2 class="section-heading">Knobs that affect this type</h2>
+                    <p class="section-caption">Only <code>scenario_instances.Sxx</code> is per-type. Everything else is shared YAML and will also change other types that use it.</p>
+                  </div>
+                  <button class="button primary" id="btn-run-one" type="button">Generate this type only</button>
+                </div>
+                <div class="preset-bar">
+                  <div class="schema-view-tabs" id="count-presets"></div>
+                  <span class="section-caption">Quick instance counts. Shared shape knobs stay as set on the run page.</span>
+                </div>
+                <div class="controls-grid" style="margin-top:16px">
+                  <article class="control-card" id="sc-instance-card"></article>
+                  <article class="control-card" id="sc-shared-card"></article>
+                </div>
+                <article class="control-card timeline-card" style="margin-top:14px">
+                  <p class="card-label">Session placement preview</p>
+                  <div class="tl-track" id="tl-track"></div>
+                  <div class="tl-legend" id="tl-legend"></div>
+                </article>
+                <div class="fixed-note" id="sc-note"></div>
+              </div>
+            </section>
+          </div>
+
+              </section>
+            </section>
+          </div>
+</div>
+      </main>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="schema_studio.js"></script>
+  <script>
+  "use strict";
+
+  const SCENARIOS = [
+    { id:"S01", name:"Large order, no fill", group:"Large-order patterns", role:"pattern", script:"large_order.py",
+      family:"Large-order patterns", category:"Unfilled oversized resting order",
+      desc:"Places a large order several ticks behind the touch and holds it without a fill.",
+      knobs:["large_depth_multiple","difficulty","hold_duration_s"],
+      fixed:["One order placed several ticks behind the touch; placement distance is fixed in the script."] },
+    { id:"S02", name:"Large order, partial fill", group:"Large-order patterns", role:"pattern", script:"large_order.py",
+      family:"Large-order patterns", category:"Partially executed oversized order",
+      desc:"Large order that is allowed to fill part of its size, then continues as a large-order episode.",
+      knobs:["large_depth_multiple","difficulty","display_duration_s","hold_duration_s"],
+      fixed:["Fill fraction is fixed at 30–70%. Shared partial_fill_* settings do not control it."] },
+    { id:"S03", name:"Large order, full fill", group:"Large-order patterns", role:"pattern", script:"large_order.py",
+      family:"Large-order patterns", category:"Fully executed oversized order",
+      desc:"Large order that attempts a full IOC fill against the book.",
+      knobs:["large_depth_multiple","difficulty","display_duration_s"],
+      fixed:["The script attempts a full IOC fill."] },
+    { id:"S04", name:"Large order, quick cancel", group:"Large-order patterns", role:"pattern", script:"large_order.py",
+      family:"Large-order patterns", category:"Short-lived oversized order",
+      desc:"Large order displayed briefly, then cancelled.",
+      knobs:["large_depth_multiple","difficulty","display_duration_s"],
+      fixed:["Quick-cancel timing and placement distance are script-defined."] },
+    { id:"S05", name:"Layering, gradual cancellation", group:"Layering patterns", role:"pattern", script:"layering.py",
+      family:"Layering patterns", category:"Stacked depth withdrawn gradually",
+      desc:"Builds a same-side ladder and cancels it in stages.",
+      knobs:["layer_count","layer_price_step_ticks","layer_volume_decay","difficulty","hold_duration_s","partial_fill"],
+      fixed:["Layer placement intervals and gradual cancel gaps are fixed."] },
+    { id:"S06", name:"Persistent layered quoting", group:"Layering patterns", role:"control", script:"layering.py",
+      family:"Benign look-alike controls", category:"Persistent layered quoting control",
+      desc:"Leaves a layered quote in place on purpose. Actor blending is bypassed.",
+      knobs:["layer_count","layer_price_step_ticks","layer_volume_decay","difficulty","hold_duration_s"],
+      fixed:["It deliberately does not cancel its layers; actor blending is bypassed."] },
+    { id:"S07", name:"Layering, rapid cancellation", group:"Layering patterns", role:"pattern", script:"layering.py",
+      family:"Layering patterns", category:"Stacked depth withdrawn as a batch",
+      desc:"Builds a ladder and cancels it as a rapid batch.",
+      knobs:["layer_count","layer_price_step_ticks","layer_volume_decay","difficulty","display_duration_s","partial_fill"],
+      fixed:["Cancellation is performed as a rapid batch."] },
+    { id:"S08", name:"Layering with linked opposite-side trade", group:"Spoofing-like sequences", role:"pattern", script:"spoofing_like.py",
+      family:"Spoofing-like sequences", category:"Ladder plus linked opposite-side execution",
+      desc:"Layered orders plus a linked genuine trade on the opposite side.",
+      knobs:["layer_count","layer_price_step_ticks","layer_volume_decay","difficulty","resting_time","partial_fill"],
+      fixed:["Trade retries and fallback behavior are fixed in the script."] },
+    { id:"S09", name:"Layering without linked trade", group:"Spoofing-like sequences", role:"pattern", script:"spoofing_like.py",
+      family:"Spoofing-like sequences", category:"Ladder with no linked execution",
+      desc:"Same layered construction without a linked opposite-side trade.",
+      knobs:["layer_count","layer_price_step_ticks","layer_volume_decay","difficulty","resting_time","partial_fill"],
+      fixed:["The no-linked-trade pattern is script-defined."] },
+    { id:"S10", name:"Patient institutional large order", group:"Benign controls", role:"control", script:"large_order.py",
+      family:"Benign look-alike controls", category:"Patient institutional control",
+      desc:"Large-order control with slower, institutional-style replacement.",
+      knobs:["large_depth_multiple","difficulty","hold_duration_s"],
+      fixed:["Replacement timing and behavior are fixed."] },
+    { id:"S11", name:"Market-maker quote updates", group:"Benign controls", role:"control", script:"controls.py",
+      family:"Benign look-alike controls", category:"Market-maker quoting control",
+      desc:"Repeated two-sided quote updates. High cancel activity is expected.",
+      knobs:["blend_actors","latency_jitter"],
+      fixed:["Update count (6–10), update gaps, and quote behavior are fixed. hft_cancel_rate_* does not control it."] },
+    { id:"S12", name:"Legitimate two-sided multi-level quoting", group:"Benign controls", role:"control", script:"controls.py",
+      family:"Benign look-alike controls", category:"Two-sided ladder control",
+      desc:"Three levels per side with refresh behavior. Common layer_count does not change its ladder size.",
+      knobs:["hold_duration_s","blend_actors"],
+      fixed:["Three levels per side, refresh behavior, and order sizing are fixed."] },
+    { id:"S13", name:"High-volatility burst", group:"Benign controls", role:"control", script:"controls.py",
+      family:"Benign look-alike controls", category:"Volatility-shock control",
+      desc:"Burst of aggressive flow on a high-volatility instrument.",
+      knobs:["large_depth_multiple","difficulty"],
+      extra:"Instrument regime is used; the type is planned onto the live book like the others.",
+      fixed:["Shock count, spacing, and shock-order size range are fixed."] },
+    { id:"S14", name:"Small order on an illiquid book", group:"Benign controls", role:"control", script:"large_order.py",
+      family:"Benign look-alike controls", category:"Illiquid-book size control",
+      desc:"Preferentially planned on low-liquidity instruments. Relative size comes from book depth, not the large-order multiple.",
+      knobs:["hold_duration_s"],
+      fixed:["Relative size is fixed from book depth; it does not use the shared large-order multiple."] },
+    { id:"S15", name:"Coincidental-trade control", group:"Benign controls", role:"control", script:"spoofing_like.py",
+      family:"Benign look-alike controls", category:"Unrelated trade near layered activity",
+      desc:"Layered activity with an unrelated trade nearby. Actor blending is bypassed.",
+      knobs:["layer_count","layer_price_step_ticks","layer_volume_decay","difficulty","resting_time","latency_jitter"],
+      fixed:["Timing of the unrelated trade is script-defined; actor blending is bypassed."] },
+    { id:"S16", name:"Feed-anomaly control", group:"Benign controls", role:"control", script:"controls.py",
+      family:"Benign look-alike controls", category:"GAP / DUPLICATE / INCONSISTENT",
+      desc:"Cycles GAP, DUPLICATE, and INCONSISTENT by instance order. There is no YAML selector for the kind.",
+      knobs:["blend_actors","latency_jitter"],
+      fixed:["Anomaly kind cycles through GAP, DUPLICATE, and INCONSISTENT by instance order."] }
+  ];
+
+  const state = {
+    yaml: null,
+    cfg: null,
+    launch: { fmt: "parquet", out: "out/ui-runs", persist: false, gate: true },
+    view: "run",
+    activeId: null,
+    busy: false
+  };
+
+  const $ = id => document.getElementById(id);
+  const toast = (msg, err) => {
+    const el = $("toast");
+    el.textContent = msg;
+    el.classList.toggle("error", !!err);
+    el.classList.add("visible");
+    setTimeout(() => el.classList.remove("visible"), 2400);
+  };
+
+  function clone(v) { return JSON.parse(JSON.stringify(v)); }
+
+  function get(path) {
+    return path.split(".").reduce((o, k) => (o == null ? o : o[k]), state.cfg);
+  }
+    function set(path, value) {
+    const keys = path.split(".");
+    let o = state.cfg;
+    for (let i = 0; i < keys.length - 1; i++) o = o[keys[i]];
+    o[keys.at(-1)] = value;
+    refreshMeta();
+    if (path === "market.instrument_count") renderInstruments();
+    if (path.includes("scenario_instances") && state.view === "scenario") {
+      $("sc-n").textContent = String(get(path) ?? 0);
+      paintTimeline();
+    }
+  }
+
+  function fmtNum(v, step) {
+    if (typeof v !== "number") return String(v);
+    const d = step && String(step).includes(".") ? String(step).split(".")[1].length : (Number.isInteger(v) ? 0 : 2);
+    return v.toFixed(d);
+  }
+
+  function sliderKnob(spec) {
+    const wrap = document.createElement("div");
+    wrap.className = "knob" + (spec.disabled ? " is-disabled" : "");
+    const range = spec.range;
+    const keys = range || [spec.path];
+    const min = spec.min, max = spec.max, step = spec.step ?? 1;
+    wrap.innerHTML = '<div class="knob-top"><span class="knob-name"></span><span class="knob-value"></span></div>' +
+      '<div class="knob-key"></div><div class="slider-wrap"><div class="slider-fill"></div></div>' +
+      '<div class="slider-bounds"><span></span><span></span></div><p class="knob-hint"></p>';
+    wrap.querySelector(".knob-name").textContent = spec.label;
+    wrap.querySelector(".knob-key").textContent = keys.join(" / ");
+    wrap.querySelector(".knob-hint").textContent = spec.hint || "";
+    const bounds = wrap.querySelectorAll(".slider-bounds span");
+    const fmt = spec.fmt || (v => fmtNum(v, step));
+    bounds[0].textContent = fmt(min); bounds[1].textContent = fmt(max);
+    const fill = wrap.querySelector(".slider-fill");
+    const out = wrap.querySelector(".knob-value");
+    const sliders = keys.map((path, i) => {
+      const input = document.createElement("input");
+      input.type = "range"; input.min = min; input.max = max; input.step = step;
+      input.disabled = !!spec.disabled;
+      input.value = get(path);
+      input.addEventListener("input", () => {
+        let val = parseFloat(input.value);
+        if (range) {
+          const other = parseFloat(sliders[1 - i].value);
+          if (i === 0 && val > other) val = other;
+          if (i === 1 && val < other) val = other;
+          input.value = val;
+        }
+        set(path, Number(step) >= 1 && Number.isInteger(Number(step)) ? Math.round(val) : val);
+        paint();
+        if (state.view === "scenario") paintTimeline();
+      });
+      wrap.querySelector(".slider-wrap").append(input);
+      return input;
+    });
+    const pct = v => ((v - min) / (max - min)) * 100;
+    function paint() {
+      const a = get(keys[0]), b = range ? get(keys[1]) : a;
+      fill.style.left = (range ? pct(a) : 0) + "%";
+      fill.style.width = (range ? pct(b) - pct(a) : pct(a)) + "%";
+      out.textContent = range ? `${fmt(a)} – ${fmt(b)}` : fmt(a);
+    }
+    paint();
+    return wrap;
+  }
+
+  function selectField(spec) {
+    const el = document.createElement("div");
+    el.className = "field";
+    el.innerHTML = '<div class="field-row"><div><div class="knob-name"></div><div class="knob-key"></div></div></div><p class="knob-hint"></p>';
+    el.querySelector(".knob-name").textContent = spec.label;
+    el.querySelector(".knob-key").textContent = spec.path;
+    el.querySelector(".knob-hint").textContent = spec.hint || "";
+    const sel = document.createElement("select");
+    spec.options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt; o.textContent = opt; sel.append(o);
+    });
+    sel.value = get(spec.path);
+    sel.disabled = !!spec.disabled;
+    sel.addEventListener("change", () => { set(spec.path, sel.value); });
+    el.querySelector(".field-row").append(sel);
+    return el;
+  }
+
+  function textField(spec) {
+    const el = document.createElement("div");
+    el.className = "field";
+    el.innerHTML = '<div class="field-row"><div><div class="knob-name"></div><div class="knob-key"></div></div></div><p class="knob-hint"></p>';
+    el.querySelector(".knob-name").textContent = spec.label;
+    el.querySelector(".knob-key").textContent = spec.path;
+    el.querySelector(".knob-hint").textContent = spec.hint || "";
+    const input = document.createElement("input");
+    input.type = spec.type || "text";
+    input.value = get(spec.path) ?? "";
+    input.disabled = !!spec.disabled;
+    if (spec.min != null) input.min = spec.min;
+    if (spec.max != null) input.max = spec.max;
+    if (spec.step != null) input.step = spec.step;
+    input.addEventListener("change", () => {
+      let v = input.value;
+      if (spec.type === "number") v = v === "" ? null : Number(v);
+      set(spec.path, v);
+    });
+    el.querySelector(".field-row").append(input);
+    return el;
+  }
+
+  function toggleField(spec) {
+    const el = document.createElement("div");
+    el.className = "field";
+    const label = document.createElement("label");
+    label.className = "toggle";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = !!get(spec.path);
+    input.disabled = !!spec.disabled;
+    input.addEventListener("change", () => set(spec.path, input.checked));
+    const copy = document.createElement("span");
+    copy.innerHTML = `<strong style="color:#dce5ef;font-weight:600">${spec.label}</strong> · <span class="knob-key">${spec.path}</span><br><span class="knob-hint">${spec.hint || ""}</span>`;
+    label.append(input, copy);
+    el.append(label);
+    return el;
+  }
+
+  function card(title, sub, nodes) {
+    const art = document.createElement("article");
+    art.className = "control-card";
+    const p = document.createElement("p"); p.className = "card-label"; p.textContent = title;
+    const s = document.createElement("p"); s.className = "control-card-sub"; s.textContent = sub;
+    art.append(p, s, ...nodes);
+    return art;
+  }
+
+  function fillCard(el, title, sub, nodes) {
+    el.replaceChildren();
+    const p = document.createElement("p"); p.className = "card-label"; p.textContent = title;
+    const s = document.createElement("p"); s.className = "control-card-sub"; s.textContent = sub;
+    el.append(p, s, ...nodes);
+  }
+
+  let typeOpen = false;
+
+  function renderTypeList() {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "type-button";
+    button.setAttribute("aria-current", String(typeOpen));
+    button.innerHTML = '<span class="type-mark" aria-hidden="true">◈</span><span class="type-name">Spoofing and layering</span><span class="scenario-group-count">16</span>';
+    button.addEventListener("click", openType);
+    $("type-list").replaceChildren(button);
+  }
+
+  function openType() {
+    if (typeOpen) return;
+    typeOpen = true;
+    $("empty-state").hidden = true;
+    $("type-view").hidden = false;
+    renderTypeList();
+    setWindow("schema");
+  }
+
+  function setWindow(name) {
+    state.view = name;
+    for (const id of ["schema", "run", "scenarios"]) {
+      $(`panel-window-${id}`).hidden = id !== name;
+    }
+    document.querySelectorAll(".window-tab").forEach(tab => {
+      tab.setAttribute("aria-selected", String(tab.dataset.window === name));
+    });
+    if (name === "scenarios") {
+      state.activeId = null;
+      $("scenario-list-view").hidden = false;
+      $("scenario-view").hidden = true;
+      renderScenarioLibrary();
+    }
+    updateCrumbs();
+  }
+
+  function updateCrumbs() {
+    if (!typeOpen) { crumbs(["Workspace"]); return; }
+    const parts = ["Workspace", "Spoofing and layering"];
+    if (state.view === "run") parts.push("Run settings");
+    else if (state.view === "scenarios" && state.activeId) {
+      const sc = SCENARIOS.find(s => s.id === state.activeId);
+      parts.push("Scenarios", `${sc.id} · ${sc.name}`);
+    } else if (state.view === "scenarios") parts.push("Scenarios");
+    else parts.push("Schema");
+    crumbs(parts);
+  }
+
+  function renderScenarioLibrary() {
+    const host = $("scenario-groups");
+    if (!host) return;
+    const fragment = document.createDocumentFragment();
+    for (const group of [...new Set(SCENARIOS.map(s => s.group))]) {
+      const items = SCENARIOS.filter(s => s.group === group);
+      const heading = document.createElement("div");
+      heading.className = "group-heading";
+      const title = document.createElement("span");
+      title.textContent = group;
+      const count = document.createElement("span");
+      count.className = "scenario-group-count";
+      count.textContent = String(items.length);
+      heading.append(title, count);
+      const grid = document.createElement("div");
+      grid.className = "scenario-grid";
+      for (const sc of items) {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "scenario-card";
+        const n = state.cfg?.scenario?.scenario_instances?.[sc.id] ?? 0;
+        card.innerHTML = '<div class="card-top"><span class="card-code"></span><span class="count-chip"></span></div><div class="card-name"></div><p class="card-rule"></p>';
+        card.querySelector(".card-code").textContent = sc.id;
+        card.querySelector(".count-chip").textContent = `${n}×`;
+        card.querySelector(".card-name").textContent = sc.name;
+        card.querySelector(".card-rule").textContent = sc.desc;
+        card.addEventListener("click", () => showScenario(sc.id));
+        grid.append(card);
+      }
+      fragment.append(heading, grid);
+    }
+    host.replaceChildren(fragment);
+  }
+
+  function renderNav() {
+    renderTypeList();
+    if (typeOpen && state.view === "scenarios" && !state.activeId) renderScenarioLibrary();
+  }
+
+  function crumbs(parts) {
+    const el = $("breadcrumb");
+    el.replaceChildren();
+    parts.forEach((t, i) => {
+      if (i) { const s = document.createElement("span"); s.textContent = "/"; el.append(s); }
+      const c = document.createElement("span");
+      c.textContent = t;
+      if (i === parts.length - 1) c.className = "breadcrumb-current";
+      el.append(c);
+    });
+  }
+
+  function refreshMeta() {
+    if (!state.cfg) return;
+    const sc = state.cfg.scenario;
+    const total = Object.values(sc.scenario_instances || {}).reduce((a, b) => a + b, 0);
+    $("m-seed").textContent = String(state.cfg.reproducibility.random_seed);
+    const dur = state.cfg.session.run_duration_s;
+    $("m-session").textContent = dur ? `${dur} s` : "full session";
+    $("m-inst").textContent = `${total} across ${Object.keys(sc.scenario_instances).length} types`;
+    $("m-diff").textContent = sc.difficulty;
+    renderNav();
+  }
+
+  function renderInstruments() {
+    const wrap = $("inst-wrap");
+    const n = state.cfg.market.instrument_count;
+    const rows = state.cfg.instruments.slice(0, Math.max(n, state.cfg.instruments.length));
+    const table = document.createElement("table");
+    table.className = "inst-table";
+    table.innerHTML = "<thead><tr><th>ID</th><th>Symbol</th><th>Tick</th><th>Lot</th><th>Ref px</th><th>Vol</th><th>Liq</th></tr></thead>";
+    const tb = document.createElement("tbody");
+    rows.forEach((inst, idx) => {
+      const tr = document.createElement("tr");
+      if (idx >= n) tr.style.opacity = ".4";
+      const fields = [
+        ["instrument_id", "text"], ["symbol", "text"], ["tick_size", "text"],
+        ["lot_size", "number"], ["reference_price", "text"]
+      ];
+      fields.forEach(([key, type]) => {
+        const td = document.createElement("td");
+        const input = document.createElement("input");
+        input.type = type; input.value = inst[key] ?? "";
+        input.addEventListener("change", () => {
+          inst[key] = type === "number" ? Number(input.value) : input.value;
+        });
+        td.append(input); tr.append(td);
+      });
+      ["volatility_regime", "liquidity_regime"].forEach(key => {
+        const td = document.createElement("td");
+        const sel = document.createElement("select");
+        ["LOW", "MEDIUM", "HIGH"].forEach(v => {
+          const o = document.createElement("option"); o.value = v; o.textContent = v.toLowerCase(); sel.append(o);
+        });
+        sel.value = (inst[key] || state.cfg.market[key] || "MEDIUM").toString().toUpperCase();
+        sel.addEventListener("change", () => { inst[key] = sel.value; });
+        td.append(sel); tr.append(td);
+      });
+      tb.append(tr);
+    });
+    table.append(tb);
+    wrap.replaceChildren(table);
+  }
+
+  function renderRunPanels() {
+    fillCard($("card-session"), "Session", "Date, timezone, and optional shortened session.", [
+      textField({ label: "Trading date", path: "session.trading_date", type: "date", hint: "session.trading_date" }),
+      textField({ label: "Timezone", path: "session.timezone", hint: "IANA timezone for the session" }),
+      sliderKnob({ label: "Run duration", path: "session.run_duration_s", min: 60, max: 1500, step: 30,
+        fmt: v => `${v} s`, hint: "CLI --duration. Null in YAML means a full session; the console always sends a duration so runs stay bounded." })
+    ]);
+    fillCard($("card-market"), "Market", "How many names, and fallback regimes.", [
+      sliderKnob({ label: "Instrument count", path: "market.instrument_count", min: 1, max: Math.max(1, state.cfg.instruments.length), step: 1,
+        hint: "First N entries from instruments.yaml" }),
+      selectField({ label: "Default volatility regime", path: "market.volatility_regime", options: ["LOW","MEDIUM","HIGH"] }),
+      selectField({ label: "Default liquidity regime", path: "market.liquidity_regime", options: ["LOW","MEDIUM","HIGH"] }),
+      sliderKnob({ label: "Random seed", path: "reproducibility.random_seed", min: 1, max: 9999, step: 1, hint: "CLI --seed / reproducibility.random_seed" })
+    ]);
+    renderInstruments();
+
+    $("panel-rates").replaceChildren(card("Arrival mix", "cancel_rate + amend_rate must stay below 1.", [
+      sliderKnob({ label: "Background events / s", path: "event_rates.background_events_per_second", min: 0.5, max: 40, step: 0.5, hint: "Per instrument, before regime multipliers" }),
+      sliderKnob({ label: "Cancel rate", path: "event_rates.cancel_rate", min: 0, max: 0.9, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+      sliderKnob({ label: "Amend rate", path: "event_rates.amend_rate", min: 0, max: 0.9, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+      sliderKnob({ label: "Marketable share", path: "event_rates.marketable_share", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+      sliderKnob({ label: "Market-order share", path: "event_rates.market_order_share", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+      sliderKnob({ label: "Marketable IOC share", path: "event_rates.marketable_ioc_share", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` })
+    ]), card("Participants & amends", "Uneven activity and amend mix.", [
+      sliderKnob({ label: "Participant count", path: "event_rates.participant_count", min: 2, max: 80, step: 1 }),
+      sliderKnob({ label: "Zipf exponent", path: "event_rates.participant_zipf_exponent", min: 0, max: 2.5, step: 0.05 }),
+      sliderKnob({ label: "Amend qty-decrease share", path: "event_rates.amend_qty_decrease_share", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+      sliderKnob({ label: "Amend price-change share", path: "event_rates.amend_price_change_share", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` })
+    ]));
+
+    $("panel-book").replaceChildren(card("Book & snapshots", "Output frequency and integrity checks.", [
+      sliderKnob({ label: "Snapshot levels", path: "book.snapshot_levels_n", min: 1, max: 20, step: 1 }),
+      selectField({ label: "Snapshot mode", path: "book.snapshot_mode", options: ["TIME","EVENT","BOTH"] }),
+      sliderKnob({ label: "Snapshot interval", path: "book.snapshot_interval_ms", min: 100, max: 5000, step: 100, fmt: v => `${v} ms` }),
+      selectField({ label: "Self-match prevention", path: "book.self_match_prevention",
+        options: ["prevent-cancel-resting","prevent-cancel-incoming","allow"] }),
+      sliderKnob({ label: "Full invariant interval", path: "book.full_invariant_check_interval", min: 0, max: 5000, step: 50 }),
+      selectField({ label: "Internal precision", path: "timing.internal_precision", options: ["MICROSECOND","MILLISECOND"] }),
+      selectField({ label: "Export precision", path: "timing.export_precision", options: ["MICROSECOND","MILLISECOND"] })
+    ]), card("Features", "depth_convention is stored but unused. Sample rate is CLI --sample-rate.", [
+      sliderKnob({ label: "Depth N", path: "features.depth_n", min: 1, max: 20, step: 1 }),
+      sliderKnob({ label: "Depth band %", path: "features.depth_band_pct", min: 0.05, max: 5, step: 0.05 }),
+      sliderKnob({ label: "Group gap", path: "features.group_gap_ms", min: 100, max: 10000, step: 100, fmt: v => `${v} ms` }),
+      sliderKnob({ label: "Group max span", path: "features.group_max_span_ms", min: 1000, max: 120000, step: 1000, fmt: v => `${v} ms` }),
+      sliderKnob({ label: "Trailing window", path: "features.trailing_window_ms", min: 0, max: 30000, step: 250, fmt: v => `${v} ms` }),
+      sliderKnob({ label: "Background order sample rate", path: "features.background_order_sample_rate", min: 0.01, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+      selectField({ label: "Depth convention (unused)", path: "features.depth_convention", options: ["BEST","TOPN","BAND"], disabled: true,
+        hint: "Accepted in config; generation does not switch on it." })
+    ]));
+
+    const instKnobs = SCENARIOS.map(sc => sliderKnob({
+      label: `${sc.id} instances`, path: `scenario.scenario_instances.${sc.id}`, min: 0, max: 40, step: 1,
+      hint: "Per-type count. --instances on the CLI would override all of these; this console does not."
+    }));
+    $("panel-scenario").replaceChildren(
+      card("Placement", "Shared spacing through the session.", [
+        sliderKnob({ label: "Scenario slot", path: "scenario.scenario_slot_s", min: 10, max: 180, step: 1, fmt: v => `${v} s` }),
+        sliderKnob({ label: "Warm-up", path: "scenario.warmup_frac", min: 0, max: 0.4, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+        sliderKnob({ label: "Cool-down", path: "scenario.cooldown_frac", min: 0, max: 0.4, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+        selectField({ label: "Difficulty", path: "scenario.difficulty", options: ["easy","medium","hard","mixed"],
+          hint: "Shared across types. mixed cycles those difficulties." })
+      ]),
+      card("Size, layers, timing", "Used only by scripts that call the shared helpers.", [
+        sliderKnob({ label: "Large-order depth multiple", range: ["scenario.large_depth_multiple_min","scenario.large_depth_multiple_max"],
+          min: 1, max: 20, step: 0.5, fmt: v => `${v.toFixed(1)}×` }),
+        sliderKnob({ label: "Layer count", path: "scenario.layer_count", min: 2, max: 8, step: 1 }),
+        sliderKnob({ label: "Layer price step", path: "scenario.layer_price_step_ticks", min: 1, max: 5, step: 1, fmt: v => `${v} tick` }),
+        sliderKnob({ label: "Layer volume decay", path: "scenario.layer_volume_decay", min: 0.3, max: 1, step: 0.01 }),
+        sliderKnob({ label: "Display duration", range: ["scenario.display_duration_s_min","scenario.display_duration_s_max"],
+          min: 0.2, max: 20, step: 0.1, fmt: v => `${v} s` }),
+        sliderKnob({ label: "Hold duration", range: ["scenario.hold_duration_s_min","scenario.hold_duration_s_max"],
+          min: 1, max: 40, step: 0.5, fmt: v => `${v} s` })
+      ]),
+      card("Resting time, fills, jitter", "Eligible layered types only.", [
+        selectField({ label: "Resting-time distribution", path: "scenario.resting_time_distribution", options: ["lognormal","uniform"] }),
+        sliderKnob({ label: "Lognormal μ / σ", range: ["scenario.resting_time_lognormal_mu","scenario.resting_time_lognormal_sigma"],
+          min: 0.05, max: 3, step: 0.05 }),
+        sliderKnob({ label: "Resting-time bounds", range: ["scenario.resting_time_min_s","scenario.resting_time_max_s"],
+          min: 0.05, max: 30, step: 0.05, fmt: v => `${v} s` }),
+        toggleField({ label: "Partial fills enabled", path: "scenario.partial_fill_enabled", hint: "Does not control S02's 30–70% fill." }),
+        sliderKnob({ label: "Partial-fill probability", path: "scenario.partial_fill_prob", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+        sliderKnob({ label: "Partial-fill ratio", range: ["scenario.partial_fill_min_ratio","scenario.partial_fill_max_ratio"],
+          min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%` }),
+        toggleField({ label: "Latency jitter", path: "scenario.latency_jitter_enabled" }),
+        sliderKnob({ label: "Jitter (ms)", range: ["scenario.latency_jitter_ms_min","scenario.latency_jitter_ms_max"],
+          min: 0, max: 250, step: 1, fmt: v => `${v} ms` }),
+        toggleField({ label: "Blend actors", path: "scenario.blend_actors", hint: "S06 and S15 bypass this." }),
+        sliderKnob({ label: "HFT cancel rate (unused)", range: ["scenario.hft_cancel_rate_min","scenario.hft_cancel_rate_max"],
+          min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%`, disabled: true,
+          hint: "In the schema, not used by scenario scripts." })
+      ]),
+      card("Per-type instance counts", "This is the main per-type YAML setting.", instKnobs)
+    );
+
+    const volCards = ["LOW","MEDIUM","HIGH"].map(r => card(`Volatility · ${r.toLowerCase()}`, "Price-path and activity coupling.", [
+      sliderKnob({ label: "σ bps / √s", path: `regimes.volatility.${r}.sigma_bps_per_sqrt_s`, min: 0.05, max: 4, step: 0.05 }),
+      sliderKnob({ label: "Vol of vol", path: `regimes.volatility.${r}.vol_of_vol`, min: 0, max: 1, step: 0.01 }),
+      sliderKnob({ label: "Vol persistence", path: `regimes.volatility.${r}.vol_persistence`, min: 0.9, max: 0.999, step: 0.001 }),
+      sliderKnob({ label: "Activity exponent", path: `regimes.volatility.${r}.activity_exponent`, min: 0, max: 2, step: 0.05 })
+    ]));
+    const liqCards = ["LOW","MEDIUM","HIGH"].map(r => card(`Liquidity · ${r.toLowerCase()}`, "Depth, size, seed book, rate multiplier.", [
+      sliderKnob({ label: "Depth scale", path: `regimes.liquidity.${r}.depth_scale`, min: 0.1, max: 5, step: 0.1 }),
+      sliderKnob({ label: "Size median", path: `regimes.liquidity.${r}.size_median`, min: 5, max: 800, step: 5 }),
+      sliderKnob({ label: "Size σ", path: `regimes.liquidity.${r}.size_sigma`, min: 0.1, max: 2, step: 0.05 }),
+      sliderKnob({ label: "Size max", path: `regimes.liquidity.${r}.size_max`, min: 100, max: 50000, step: 100 }),
+      sliderKnob({ label: "Half-spread ticks", path: `regimes.liquidity.${r}.half_spread_ticks`, min: 0, max: 8, step: 0.5 }),
+      sliderKnob({ label: "Offset scale ticks", path: `regimes.liquidity.${r}.offset_scale_ticks`, min: 0.5, max: 12, step: 0.5 }),
+      sliderKnob({ label: "Seed levels", path: `regimes.liquidity.${r}.seed_levels`, min: 1, max: 20, step: 1 }),
+      sliderKnob({ label: "Seed orders / level", path: `regimes.liquidity.${r}.seed_orders_per_level`, min: 1, max: 8, step: 1 }),
+      sliderKnob({ label: "Rate multiplier", path: `regimes.liquidity.${r}.rate_multiplier`, min: 0.1, max: 4, step: 0.1 })
+    ]));
+    $("panel-regimes").replaceChildren(
+      card("Mean reversion & U-shape", "Intraday boosts near open and close.", [
+        sliderKnob({ label: "Mean reversion / s", path: "regimes.mean_reversion_per_s", min: 0, max: 0.02, step: 0.0005 }),
+        sliderKnob({ label: "Open boost", path: "regimes.intraday_profile.open_boost", min: 1, max: 6, step: 0.1 }),
+        sliderKnob({ label: "Close boost", path: "regimes.intraday_profile.close_boost", min: 1, max: 6, step: 0.1 }),
+        sliderKnob({ label: "Decay minutes", path: "regimes.intraday_profile.decay_minutes", min: 5, max: 90, step: 1 })
+      ]),
+      ...volCards, ...liqCards
+    );
+
+    const fmtSel = document.createElement("select");
+    ["parquet", "csv"].forEach(v => { const o = document.createElement("option"); o.value = v; o.textContent = v; fmtSel.append(o); });
+    fmtSel.value = state.launch.fmt;
+    fmtSel.addEventListener("change", () => { state.launch.fmt = fmtSel.value; });
+    const outInput = document.createElement("input");
+    outInput.type = "text"; outInput.value = state.launch.out;
+    outInput.addEventListener("change", () => { state.launch.out = outInput.value; });
+    const gate = document.createElement("input"); gate.type = "checkbox"; gate.checked = state.launch.gate;
+    gate.addEventListener("change", () => { state.launch.gate = gate.checked; });
+    const persist = document.createElement("input"); persist.type = "checkbox"; persist.checked = state.launch.persist;
+    persist.addEventListener("change", () => { state.launch.persist = persist.checked; });
+    const launchCard = document.createElement("article");
+    launchCard.className = "control-card";
+    launchCard.innerHTML = '<p class="card-label">CLI-equivalent launch</p><p class="control-card-sub">Same flags as python -m surveillance_sim.cli generate. Export lands in this folder / run_id.</p>';
+    const row = (label, control) => {
+      const d = document.createElement("div"); d.className = "field";
+      const fr = document.createElement("div"); fr.className = "field-row";
+      const lab = document.createElement("div"); lab.className = "knob-name"; lab.textContent = label;
+      fr.append(lab, control); d.append(fr); return d;
+    };
+    const gateLab = document.createElement("label"); gateLab.className = "toggle"; gateLab.append(gate, document.createTextNode(" Validation gate (off = --no-gate)"));
+    const persistLab = document.createElement("label"); persistLab.className = "toggle"; persistLab.append(persist, document.createTextNode(" Persist to Postgres (needs DATABASE_URL)"));
+    launchCard.append(
+      row("Export format", fmtSel),
+      row("Export directory", outInput),
+      Object.assign(document.createElement("div"), { className: "field" }),
+    );
+    launchCard.lastChild.append(gateLab);
+    const pfield = document.createElement("div"); pfield.className = "field"; pfield.append(persistLab);
+    launchCard.append(pfield, toggleField({ label: "Replay check", path: "validation.replay_check" }),
+      sliderKnob({ label: "Max regeneration attempts", path: "validation.max_regeneration_attempts", min: 0, max: 8, step: 1 }));
+    const note = document.createElement("div");
+    note.className = "notice";
+    note.innerHTML = "<strong>Thresholds.yaml is not wired into generation.</strong> Detector cut-offs stay on <code>evaluate</code>. This console does not pretend they change the dataset.";
+    const presets = document.createElement("article");
+    presets.className = "control-card";
+    presets.innerHTML = '<p class="card-label">Run size presets</p><p class="control-card-sub">YAML defaults are 25 instances per type — too many for a shortened console session. These only change counts and duration.</p>';
+    const bar = document.createElement("div"); bar.className = "schema-view-tabs"; bar.style.marginTop = "8px";
+    [["Quick", applyQuick], ["Makefile demo", applyDemo], ["YAML counts", applyYamlCounts]].forEach(([label, fn]) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "schema-view-tab"; b.textContent = label;
+      b.addEventListener("click", () => { fn(); renderRunPanels(); refreshMeta(); toast(label + " applied."); });
+      bar.append(b);
+    });
+    presets.append(bar);
+    $("panel-output").replaceChildren(launchCard, presets, note);
+  }
+
+  function applyQuick() {
+    state.cfg.session.run_duration_s = 600;
+    for (const k of Object.keys(state.cfg.scenario.scenario_instances)) state.cfg.scenario.scenario_instances[k] = 1;
+  }
+  function applyDemo() {
+    state.cfg.session.run_duration_s = 1500;
+    for (const k of Object.keys(state.cfg.scenario.scenario_instances)) state.cfg.scenario.scenario_instances[k] = 2;
+  }
+  function applyYamlCounts() {
+    state.cfg.scenario.scenario_instances = clone(state.yaml.scenario.scenario_instances);
+    state.cfg.session.run_duration_s = state.yaml.session.run_duration_s || 1500;
+  }
+
+  function showRun() {
+    if (!typeOpen) openType();
+    setWindow("run");
+  }
+
+  const KNOB_BUILDERS = {
+    large_depth_multiple: () => sliderKnob({ label: "Large-order depth multiple", range: ["scenario.large_depth_multiple_min","scenario.large_depth_multiple_max"], min: 1, max: 20, step: 0.5, fmt: v => `${v.toFixed(1)}×`, hint: "Shared helper. Not used by S14." }),
+    layer_count: () => sliderKnob({ label: "Layer count", path: "scenario.layer_count", min: 2, max: 8, step: 1, hint: "S12 ignores this and stays at three levels per side." }),
+    layer_price_step_ticks: () => sliderKnob({ label: "Layer price step", path: "scenario.layer_price_step_ticks", min: 1, max: 5, step: 1, fmt: v => `${v} tick` }),
+    layer_volume_decay: () => sliderKnob({ label: "Layer volume decay", path: "scenario.layer_volume_decay", min: 0.3, max: 1, step: 0.01 }),
+    difficulty: () => selectField({ label: "Difficulty", path: "scenario.difficulty", options: ["easy","medium","hard","mixed"] }),
+    display_duration_s: () => sliderKnob({ label: "Display duration", range: ["scenario.display_duration_s_min","scenario.display_duration_s_max"], min: 0.2, max: 20, step: 0.1, fmt: v => `${v} s` }),
+    hold_duration_s: () => sliderKnob({ label: "Hold duration", range: ["scenario.hold_duration_s_min","scenario.hold_duration_s_max"], min: 1, max: 40, step: 0.5, fmt: v => `${v} s` }),
+    partial_fill: () => sliderKnob({ label: "Partial-fill probability", path: "scenario.partial_fill_prob", min: 0, max: 1, step: 0.01, fmt: v => `${Math.round(v*100)}%`, hint: "Requires partial_fill_enabled. Does not drive S02." }),
+    resting_time: () => sliderKnob({ label: "Resting-time bounds", range: ["scenario.resting_time_min_s","scenario.resting_time_max_s"], min: 0.05, max: 30, step: 0.05, fmt: v => `${v} s` }),
+    latency_jitter: () => sliderKnob({ label: "Latency jitter", range: ["scenario.latency_jitter_ms_min","scenario.latency_jitter_ms_max"], min: 0, max: 250, step: 1, fmt: v => `${v} ms` }),
+    blend_actors: () => toggleField({ label: "Blend actors", path: "scenario.blend_actors" })
+  };
+
+  function sessionSeconds() {
+    const d = state.cfg.session.run_duration_s;
+    if (d) return d;
+    return 6.25 * 3600;
+  }
+
+  function paintTimeline() {
+    const sc = SCENARIOS.find(s => s.id === state.activeId);
+    if (!sc) return;
+    const cfg = state.cfg.scenario;
+    const n = cfg.scenario_instances[sc.id] || 0;
+    const SESSION = sessionSeconds();
+    const warm = cfg.warmup_frac, cool = cfg.cooldown_frac;
+    const activeFrac = Math.max(0, 1 - warm - cool);
+    const nInst = state.cfg.market.instrument_count;
+    const slots = Math.floor((activeFrac * SESSION) / cfg.scenario_slot_s) * nInst;
+    const track = $("tl-track");
+    track.replaceChildren();
+    const mk = (cls, w) => { const e = document.createElement("div"); e.className = cls; e.style.width = w + "%"; track.append(e); return e; };
+    mk("tl-warm", warm * 100);
+    const act = mk("tl-active", activeFrac * 100);
+    const shown = Math.min(n, Math.max(slots, 1));
+    for (let i = 0; i < shown; i++) {
+      const m = document.createElement("i"); m.className = "tl-mark";
+      m.style.left = ((i + 0.5) / Math.max(shown, 1)) * 100 + "%"; act.append(m);
+    }
+    mk("tl-cool", cool * 100);
+    const total = Object.values(cfg.scenario_instances).reduce((a,b) => a + b, 0);
+    const over = total > slots;
+    $("tl-legend").innerHTML = `<span>Warm-up ${Math.round(warm*100)}% · Active ${Math.round(activeFrac*100)}% · Cool-down ${Math.round(cool*100)}%</span>` +
+      `<span class="${over ? "tl-warn" : ""}">${n} of this type · ${total} total instances · ~${slots} slots across ${nInst} instrument(s)</span>`;
+  }
+
+  function showScenario(id) {
+    const sc = SCENARIOS.find(s => s.id === id);
+    if (!sc) return;
+    if (!typeOpen) {
+      typeOpen = true;
+      $("empty-state").hidden = true;
+      $("type-view").hidden = false;
+      renderTypeList();
+    }
+    state.view = "scenarios";
+    state.activeId = id;
+    for (const wid of ["schema", "run", "scenarios"]) $(`panel-window-${wid}`).hidden = wid !== "scenarios";
+    document.querySelectorAll(".window-tab").forEach(tab => {
+      tab.setAttribute("aria-selected", String(tab.dataset.window === "scenarios"));
+    });
+    $("scenario-list-view").hidden = true;
+    $("scenario-view").hidden = false;
+    updateCrumbs();
+    $("sc-eyebrow").textContent = `${sc.id} · ${sc.group}`;
+    $("sc-title").textContent = sc.name;
+    $("sc-desc").textContent = sc.desc;
+    $("sc-role").textContent = sc.role === "control" ? "Benign control" : "Pattern";
+    $("sc-n").textContent = String(state.cfg.scenario.scenario_instances[sc.id] ?? 0);
+    $("sc-knobs").textContent = sc.knobs.join(", ") || "none beyond instance count";
+    $("sc-script").textContent = sc.script;
+    $("sc-family").textContent = sc.family;
+    $("sc-cat").textContent = sc.category;
+    const role = $("sc-tax-role");
+    role.textContent = sc.role === "control" ? "Benign look-alike control · not a positive abuse label" : "Manipulative-pattern test";
+    role.classList.toggle("control", sc.role === "control");
+    $("sc-fixed").replaceChildren(...sc.fixed.map(text => {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="constraint-mark">◆</span><span></span>';
+      li.querySelector("span:last-child").textContent = text;
+      return li;
+    }));
+    fillCard($("sc-instance-card"), "This type only", "scenario_instances." + sc.id, [
+      sliderKnob({ label: "Occurrences in this run", path: `scenario.scenario_instances.${sc.id}`, min: 0, max: 40, step: 1,
+        hint: "How many instances of this script are planned." })
+    ]);
+    const shared = sc.knobs.map(k => KNOB_BUILDERS[k]?.()).filter(Boolean);
+    fillCard($("sc-shared-card"), "Shared knobs that apply", "Changing these also affects other types that use the same helper.",
+      shared.length ? shared : [Object.assign(document.createElement("p"), { className: "control-card-sub", textContent: "Only instance count is independently configurable for this type." })]);
+    $("sc-note").innerHTML = `<strong>Locked in the script:</strong> ${sc.fixed[0]} Shared YAML still flows through the existing helpers — we are not adding per-type parameter blocks.`;
+    const presets = $("count-presets");
+    presets.replaceChildren(...[0, 1, 2, 5].map(n => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "schema-view-tab"; b.textContent = `${n}×`;
+      b.addEventListener("click", () => {
+        set(`scenario.scenario_instances.${sc.id}`, n);
+        showScenario(sc.id);
+      });
+      return b;
+    }));
+    paintTimeline();
+    renderNav();
+    $("sc-n").textContent = String(state.cfg.scenario.scenario_instances[sc.id] ?? 0);
+  }
+
+  document.querySelectorAll("#panel-window-run .tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll("#panel-window-run .tab").forEach(t => t.setAttribute("aria-selected", String(t === tab)));
+      ["session","rates","book","scenario","regimes","output"].forEach(id => {
+        $(`panel-${id}`).hidden = tab.dataset.tab !== id;
+      });
+    });
+  });
+  document.querySelectorAll(".window-tab").forEach(tab => {
+    tab.addEventListener("click", () => setWindow(tab.dataset.window));
+  });
+  $("back-scenarios").addEventListener("click", () => setWindow("scenarios"));
+
+  function overridesPayload() {
+    const cfg = clone(state.cfg);
+    const n = cfg.market.instrument_count;
+    cfg.instruments = cfg.instruments.slice(0, n);
+    if (!cfg.session.run_duration_s) cfg.session.run_duration_s = 600;
+    // launch is not part of SimulationConfig
+    delete cfg._launch;
+    return {
+      seed: cfg.reproducibility.random_seed,
+      gate: state.launch.gate,
+      persist: state.launch.persist,
+      fmt: state.launch.fmt,
+      out: `${state.launch.out}`,
+      overrides: cfg
+    };
+  }
+
+  async function validate() {
+    const res = await fetch("/api/validate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(overridesPayload()) });
+    const data = await res.json();
+    if (!data.ok) { toast(data.error || "Invalid config", true); $("capacity-line").textContent = data.error; return data; }
+    const c = data.capacity;
+    $("capacity-line").textContent = `~${c.slots_per_instrument} slots × ${c.instruments} names ≈ ${c.approx_capacity} capacity · ${c.requested_instances} instances requested · session ${Math.round(c.session_s)} s`;
+    if (c.requested_instances > c.approx_capacity) toast("Requested instances may not fit the session slots.", true);
+    else toast("Config validates against the current schema.");
+    return data;
+  }
+
+  function setBusy(on) {
+    state.busy = on;
+    $("live-dot").classList.toggle("busy", on);
+    $("live-label").textContent = on ? "Generating…" : "Generator console";
+    $("btn-run").disabled = on; $("btn-run-one").disabled = on; $("btn-validate").disabled = on;
+  }
+
+  async function generate(focusId) {
+    if (state.busy) return;
+    const snapshot = clone(state.cfg.scenario.scenario_instances);
+    if (focusId) {
+      for (const k of Object.keys(state.cfg.scenario.scenario_instances)) {
+        state.cfg.scenario.scenario_instances[k] = k === focusId ? Math.max(1, state.cfg.scenario.scenario_instances[k] || 1) : 0;
+      }
+    }
+    const body = overridesPayload();
+    if (focusId) state.cfg.scenario.scenario_instances = snapshot;
+    setBusy(true);
+    const log = $("log");
+    log.hidden = false; log.textContent = "";
+    $("result").hidden = true;
+    try {
+      const res = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+          if (msg.type === "log") log.textContent += msg.message + "\n";
+          if (msg.type === "error") {
+            log.textContent += "ERROR " + msg.error + "\n";
+            toast(msg.error, true);
+            if (msg.report) renderResult({ passed: false, summary: msg.report.summary, counts: {}, failures: msg.report.results?.filter(r => r.status === "FAIL") });
+          }
+          if (msg.type === "done") {
+            renderResult(msg);
+            toast(msg.passed ? `Exported ${msg.run_id}` : `Finished with validation issues`);
+          }
+          log.scrollTop = log.scrollHeight;
+        }
+      }
+    } catch (err) {
+      toast(String(err), true);
+      log.textContent += String(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function renderResult(msg) {
+    const el = $("result");
+    el.hidden = false;
+    const counts = msg.counts || {};
+    el.innerHTML = `<div class="result-grid">
+      ${[["Run", msg.run_id || "—"],["Gate", msg.passed ? "PASSED" : "FAILED"],["Events", counts.events],["Trades", counts.trades],["Features", counts.features],["Manifests", counts.manifests]].map(([k,v]) =>
+        `<article class="metadata-card"><span class="metadata-label">${k}</span><span class="metadata-value">${v ?? "—"}</span></article>`).join("")}
+    </div>
+    <p class="section-caption" style="margin-top:12px">${msg.out ? "Exported to " + msg.out : ""} ${msg.config_hash ? " · hash " + msg.config_hash.slice(0,12) : ""}</p>`;
+  }
+
+  $("btn-validate").addEventListener("click", () => validate());
+  $("btn-run").addEventListener("click", () => generate(null));
+  $("btn-run-one").addEventListener("click", () => generate(state.activeId));
+  $("btn-yaml").addEventListener("click", () => {
+    state.cfg = clone(state.yaml);
+    if (state.cfg.session.run_duration_s == null) state.cfg.session.run_duration_s = 600;
+    renderRunPanels(); refreshMeta(); toast("Reloaded YAML defaults (duration kept at 600s for console runs).");
+  });
+
+  // Launch toggles: bind after first load via event delegation
+  document.addEventListener("change", e => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) && !(t instanceof HTMLSelectElement)) return;
+    // fmt/out handled in render with fake paths — patch below
+  });
+
+  async function boot() {
+    try {
+      const res = await fetch("/api/defaults");
+      const data = await res.json();
+      state.yaml = data.config;
+      state.cfg = clone(data.config);
+      applyQuick();
+      $("conn-pill").textContent = "Connected · configs/default.yaml";
+      renderRunPanels();
+      refreshMeta();
+      if (typeof initMasterSchema === "function") initMasterSchema();
+      renderTypeList();
+      crumbs(["Workspace"]);
+      $("capacity-line").textContent = "Quick preset: 600s session, 1 instance per type. Validate before a long run.";
+    } catch (err) {
+      $("conn-pill").textContent = "Open via python scripts/run_console.py";
+      toast("Could not load /api/defaults. Start the console server.", true);
+    }
+  }
+
+  boot();
+  </script>
+</body>
+</html>

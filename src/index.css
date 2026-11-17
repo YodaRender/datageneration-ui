@@ -1,0 +1,113 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #EDF0F6;
+  --sf: #FFFFFF;
+  --sf-alt: #F7F9FC;
+  --ink: #14213D;
+  --mut: #5E6B85;
+  --ln: #D6DCE8;
+  --buy: #0D9488;
+  --sell: #4F46E5;
+  --flag: #D3195F;
+  --look: #D97706;
+  --pass: #16A34A;
+  --fail: #DC2626;
+  --pend: #64748B;
+  --focus-ring: #D97706;
+}
+
+.dark {
+  --bg: #0E1424;
+  --sf: #151D33;
+  --sf-alt: #1B2540;
+  --ink: #E8EDF7;
+  --mut: #9AA6C0;
+  --ln: #27324F;
+  --buy: #2DD4BF;
+  --sell: #818CF8;
+  --flag: #FF4D8D;
+  --look: #FBBF24;
+  --pass: #22C55E;
+  --fail: #EF4444;
+  --pend: #94A3B8;
+  --focus-ring: #FBBF24;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: "Schibsted Grotesk", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-tabular {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.dual-range-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.dual-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--sf);
+  border: 2px solid var(--sell);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.dual-range-input:disabled::-webkit-slider-thumb {
+  border-color: var(--mut);
+  cursor: not-allowed;
+}
+
+.dual-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--sf);
+  border: 2px solid var(--sell);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.dual-range-input:disabled::-moz-range-thumb {
+  border-color: var(--mut);
+  cursor: not-allowed;
+}
+

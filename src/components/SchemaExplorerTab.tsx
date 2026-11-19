@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Lock } from 'lucide-react';
 import {
-  POSTGRES_ENUMS,
   SCHEMA_EDGES,
   SCHEMA_TABLES,
 } from '../data/schemaCatalog';
@@ -31,7 +30,6 @@ const LAYER_META: Array<{
 
 export const SchemaExplorerTab: React.FC<SchemaExplorerTabProps> = ({ artifactMode }) => {
   const [selectedId, setSelectedId] = useState<string>('core.order_events');
-  const [showEnums, setShowEnums] = useState<boolean>(false);
 
   const selectedTable: SchemaTableDef =
     SCHEMA_TABLES.find((t) => t.id === selectedId) ?? SCHEMA_TABLES[0];
@@ -56,19 +54,10 @@ export const SchemaExplorerTab: React.FC<SchemaExplorerTabProps> = ({ artifactMo
             Five-schema architecture &amp; information_schema lineage
           </h2>
           <p className="text-xs text-[var(--mut)] mt-0.5 max-w-3xl">
-            Generated from <span className="font-mono-tabular">master_schema.sql</span> metadata.
             Select any table or view to inspect columns, constraints, deferrable foreign keys, and
             columns stripped by <span className="font-mono-tabular">model_input.*</span> views.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => setShowEnums((v) => !v)}
-          className="px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-lg border border-[var(--ln)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--sf-alt)] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-        >
-          {showEnums ? 'Hide PostgreSQL enums (9)' : 'Inspect PostgreSQL enums (9)'}
-        </button>
       </div>
 
       {/* Legend */}
@@ -475,29 +464,6 @@ export const SchemaExplorerTab: React.FC<SchemaExplorerTabProps> = ({ artifactMo
         )}
       </div>
 
-      {/* Expandable PostgreSQL ENUM catalog */}
-      {showEnums && (
-        <div className="bg-[var(--bg)] border border-[var(--ln)] rounded-xl p-4">
-          <div className="text-xs font-semibold text-[var(--ink)] mb-3">
-            PostgreSQL custom enum types (master_schema.sql)
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {POSTGRES_ENUMS.map((en) => (
-              <div
-                key={en.name}
-                className="bg-[var(--sf)] border border-[var(--ln)] rounded-lg p-3"
-              >
-                <div className="font-mono-tabular text-xs font-bold text-[var(--ink)]">
-                  {en.name}
-                </div>
-                <div className="font-mono-tabular text-[11px] text-[var(--mut)] mt-1.5 leading-relaxed">
-                  {en.values.join(' · ')}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

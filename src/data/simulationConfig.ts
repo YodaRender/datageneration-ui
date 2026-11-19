@@ -1,11 +1,11 @@
-import {
+import type {
   ConfigValidationResult,
   InstrumentConfigRow,
   LaunchOptions,
   ScenarioDefinition,
   ScenarioId,
   SimulationConfig,
-} from '../types/surveillance';
+} from '../types/surveillance.ts';
 
 export const SCENARIO_DEFINITIONS: ScenarioDefinition[] = [
   {
@@ -177,7 +177,7 @@ export const SCENARIO_DEFINITIONS: ScenarioDefinition[] = [
     desc: 'Repeated two-sided quote updates. High cancel activity is expected.',
     knobs: ['blend_actors', 'latency_jitter'],
     fixed: [
-      'Update count (6–10), update gaps, and quote behavior are fixed. hft_cancel_rate_* does not control it.',
+      'Update count (6–10), update gaps, and quote behavior are fixed.',
     ],
   },
   {
@@ -368,17 +368,18 @@ export const DEMO_INSTANCES: Record<ScenarioId, number> = {
 export const DEFAULT_LAUNCH_OPTIONS: LaunchOptions = {
   fmt: 'parquet',
   out: 'out/ui-runs',
-  persist: false,
   gate: true,
   defectRatePct: 0,
 };
+
+export const FULL_MARKET_DAY_SECONDS = 21600; // 6-hour session: 09:15 to 15:15
 
 export function createDefaultSimulationConfig(): SimulationConfig {
   return {
     session: {
       trading_date: '2026-11-17',
       timezone: 'Asia/Kolkata',
-      run_duration_s: 1500,
+      run_duration_s: FULL_MARKET_DAY_SECONDS,
     },
     market: {
       instrument_count: 2,
@@ -393,13 +394,13 @@ export function createDefaultSimulationConfig(): SimulationConfig {
       background_events_per_second: 8.5,
       cancel_rate: 0.42,
       amend_rate: 0.14,
-      marketable_share: 0.24,
       market_order_share: 0.12,
-      marketable_ioc_share: 0.18,
+      limit_ioc_share: 0.18,
       participant_count: 16,
       participant_zipf_exponent: 1.15,
-      amend_qty_decrease_share: 0.35,
-      amend_price_change_share: 0.65,
+      amend_qty_decrease_share: 0.30,
+      amend_price_change_share: 0.60,
+      amend_qty_increase_share: 0.10,
     },
     book: {
       snapshot_levels_n: 5,
@@ -419,7 +420,6 @@ export function createDefaultSimulationConfig(): SimulationConfig {
       group_max_span_ms: 25000,
       trailing_window_ms: 15000,
       background_order_sample_rate: 0.04,
-      depth_convention: 'TOPN',
     },
     scenario: {
       scenario_slot_s: 40,
@@ -554,8 +554,72 @@ export function computeConfigHash(cfg: SimulationConfig, launch?: LaunchOptions)
   return `sha256:${hex.slice(0, 12)}`;
 }
 
+export interface InstrumentRateEstimate {
+  instrument_id: string;
+  symbol: string;
+  volatility_regime: InstrumentConfigRow['volatility_regime'];
+  liquidity_regime: InstrumentConfigRow['liquidity_regime'];
+  baseRate: number;
+  liqMultiplier: number;
+  volScale: number;
+  avgIntradayMultiplier: number;
+  openBoost: number;
+  closeBoost: number;
+  steadyEventsPerSec: number;
+  avgEventsPerSec: number;
+  openEventsPerSec: number;
+  closeEventsPerSec: number;
+  estimatedSessionEvents: number;
+}
+
+export function estimateInstrumentEventRates(cfg: SimulationConfig): InstrumentRateEstimate[] {
+  const sessionSec = FULL_MARKET_DAY_SECONDS;
+  const activeCount = Math.max(1, Math.min(cfg.market.instrument_count, cfg.instruments.length));
+  const activeInstruments = cfg.instruments.slice(0, activeCount);
+  const baseRate = Math.max(0, cfg.event_rates.background_events_per_second);
+  const { open_boost, close_boost, decay_minutes } = cfg.regimes.intraday_profile;
+  const decaySec = Math.max(60, decay_minutes * 60);
+  const decayIntegral = 1 - Math.exp(-sessionSec / decaySec);
+  const avgIntradayMultiplier =
+    1 + (decaySec / sessionSec) * ((open_boost - 1) * decayIntegral + (close_boost - 1) * decayIntegral);
+
+  return activeInstruments.map((inst) => {
+    const volRegime = inst.volatility_regime || cfg.market.volatility_regime;
+    const liqRegime = inst.liquidity_regime || cfg.market.liquidity_regime;
+    const volParams = cfg.regimes.volatility[volRegime];
+    const liqParams = cfg.regimes.liquidity[liqRegime];
+    const volScale = Math.pow(
+      Math.max(0.25, volParams.sigma_bps_per_sqrt_s / 1.2),
+      volParams.activity_exponent
+    );
+    const liqMultiplier = liqParams.rate_multiplier;
+    const steadyEventsPerSec = baseRate * liqMultiplier * volScale;
+    const avgEventsPerSec = steadyEventsPerSec * avgIntradayMultiplier;
+    const openEventsPerSec = steadyEventsPerSec * open_boost;
+    const closeEventsPerSec = steadyEventsPerSec * close_boost;
+
+    return {
+      instrument_id: inst.instrument_id,
+      symbol: inst.symbol,
+      volatility_regime: volRegime,
+      liquidity_regime: liqRegime,
+      baseRate,
+      liqMultiplier,
+      volScale,
+      avgIntradayMultiplier,
+      openBoost: open_boost,
+      closeBoost: close_boost,
+      steadyEventsPerSec,
+      avgEventsPerSec,
+      openEventsPerSec,
+      closeEventsPerSec,
+      estimatedSessionEvents: Math.round(avgEventsPerSec * sessionSec),
+    };
+  });
+}
+
 export function computeCapacity(cfg: SimulationConfig): ConfigValidationResult['capacity'] {
-  const session_s = cfg.session.run_duration_s || 1500;
+  const session_s = cfg.session.run_duration_s || FULL_MARKET_DAY_SECONDS;
   const warm = cfg.scenario.warmup_frac;
   const cool = cfg.scenario.cooldown_frac;
   const activeFrac = Math.max(0, 1 - warm - cool);
@@ -595,6 +659,30 @@ export function validateSimulationConfig(
       `cancel_rate (${cfg.event_rates.cancel_rate.toFixed(2)}) + amend_rate (${cfg.event_rates.amend_rate.toFixed(
         2
       )}) must stay strictly below 1.00.`
+    );
+  }
+
+  const amendSumPct = Math.round(
+    (cfg.event_rates.amend_qty_decrease_share +
+      cfg.event_rates.amend_price_change_share +
+      (cfg.event_rates.amend_qty_increase_share ?? 0)) *
+      100
+  );
+  if (amendSumPct !== 100) {
+    errors.push(
+      `Amend split (qty decrease + price change + qty increase) must add up to 100% (currently ${amendSumPct}%).`
+    );
+  }
+
+  if (cfg.event_rates.market_order_share < 0 || cfg.event_rates.market_order_share > 0.2) {
+    errors.push(
+      `market_order_share (${Math.round(cfg.event_rates.market_order_share * 100)}%) must be between 0% and 20%.`
+    );
+  }
+
+  if (cfg.book.snapshot_levels_n < 1 || cfg.book.snapshot_levels_n > 6) {
+    errors.push(
+      `book.snapshot_levels_n (${cfg.book.snapshot_levels_n}) must be between 1 and 6 levels.`
     );
   }
 

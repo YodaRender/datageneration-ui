@@ -62,6 +62,19 @@ export interface RunMetadata {
     embedded_events: number;
     baseline_sample_pct: number;
   };
+  amend_split?: {
+    requested: {
+      qty_decrease_pct: number;
+      price_change_pct: number;
+      qty_increase_pct: number;
+    };
+    realised: {
+      qty_decrease_pct: number;
+      price_change_pct: number;
+      qty_increase_pct: number;
+      total_amends: number;
+    };
+  };
 }
 
 export interface InstrumentMaster {
@@ -105,6 +118,7 @@ export interface OrderEvent {
   time_in_force: TimeInForce;
   source_sequence: number;
   exchange_order_status: OrderStatus;
+  status?: OrderStatus; // Optional DB view alias for exchange_order_status
   is_scenario_event: boolean; // Stripped in model_input.order_events
   data_quality_flag: DataQualityFlag;
   reason_code: ReasonCode | null;
@@ -130,6 +144,10 @@ export interface OrderState {
   remaining_qty: number;
   creation_timestamp_sec: number;
   last_update_timestamp_sec: number;
+  queue_priority_timestamp_sec: number;
+  creation_timestamp_iso?: string;
+  last_update_timestamp_iso?: string;
+  queue_priority_timestamp_iso?: string;
   status: OrderStatus;
   scenario_id: string | null;
 }
@@ -173,6 +191,7 @@ export interface Trade {
   trade_id: string;
   instrument_id: string;
   trade_timestamp_sec: number;
+  trade_timestamp_iso?: string;
   price: number;
   quantity: number;
   buy_order_id: string;
@@ -189,6 +208,7 @@ export interface BookSnapshot {
   snapshot_id: string;
   instrument_id: string;
   snapshot_timestamp_sec: number;
+  snapshot_timestamp_iso?: string;
   sequence_number: number;
   best_bid_price: number;
   best_bid_qty: number;
@@ -202,6 +222,8 @@ export interface BookSnapshot {
   ask_prices: number[];
   ask_depths: number[];
   ask_order_counts: number[];
+  bid_total_depth: number;
+  ask_total_depth: number;
   book_status: BookStatus;
   data_quality_flag: DataQualityFlag;
 }
@@ -259,6 +281,9 @@ export interface SurveillanceFeatureRow {
   feature_timestamp_sec: number;
   observation_start_sec: number;
   observation_end_sec: number;
+  feature_timestamp_iso?: string;
+  observation_start_iso?: string;
+  observation_end_iso?: string;
   feature_name: string;
   feature_value_num: number | null;
   feature_value_cat: string | null;
@@ -276,6 +301,7 @@ export interface SurveillanceFeatureRow {
     alert_triggered?: boolean;
     participant_id?: string;
     order_count?: number;
+    instrument_id?: string;
   };
 }
 
@@ -298,6 +324,7 @@ export interface ValidationResultRow {
 export interface SyntheticDataset {
   run_metadata: RunMetadata;
   instrument_master: InstrumentMaster;
+  instruments?: InstrumentMaster[];
   // model_input.* layer (label-free)
   model_input: {
     order_events: OrderEvent[];
@@ -433,13 +460,13 @@ export interface SimulationConfig {
     background_events_per_second: number;
     cancel_rate: number;
     amend_rate: number;
-    marketable_share: number;
     market_order_share: number;
-    marketable_ioc_share: number;
+    limit_ioc_share: number;
     participant_count: number;
     participant_zipf_exponent: number;
     amend_qty_decrease_share: number;
     amend_price_change_share: number;
+    amend_qty_increase_share: number;
   };
   book: {
     snapshot_levels_n: number;
@@ -459,7 +486,6 @@ export interface SimulationConfig {
     group_max_span_ms: number;
     trailing_window_ms: number;
     background_order_sample_rate: number;
-    depth_convention: 'BEST' | 'TOPN' | 'BAND';
   };
   scenario: {
     scenario_slot_s: number;
@@ -511,7 +537,6 @@ export interface SimulationConfig {
 export interface LaunchOptions {
   fmt: 'parquet' | 'csv';
   out: string;
-  persist: boolean;
   gate: boolean;
   defectRatePct: number;
 }

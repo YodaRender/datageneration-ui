@@ -6,6 +6,7 @@ import {
   EventAssociation,
   EventType,
   GroundTruthLabel,
+  InstrumentMaster,
   OrderEvent,
   RebuiltOrderLifeline,
   ReportArtifactMode,
@@ -34,9 +35,12 @@ interface MarketViewTabProps {
   onClearHighlightParticipant: () => void;
   darkMode: boolean;
   sessionDurationSec?: number;
+  instruments?: InstrumentMaster[];
+  selectedInstrumentId?: string;
+  onSelectInstrument?: (instrumentId: string) => void;
 }
 
-const DEFAULT_SESSION_DURATION = 1800;
+const DEFAULT_SESSION_DURATION = 21600;
 const MICRO_LOD_THRESHOLD_SEC = 120; // Switch from density heatmap to individual lifelines under 2 minutes
 
 const GT_LABELS: GroundTruthLabel[] = [
@@ -74,6 +78,9 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
   onClearHighlightParticipant,
   darkMode,
   sessionDurationSec = DEFAULT_SESSION_DURATION,
+  instruments,
+  selectedInstrumentId,
+  onSelectInstrument,
 }) => {
   const canReveal = artifactMode === 'evaluator' && revealLabels;
 
@@ -310,7 +317,14 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
   const effectiveBookMode: 'snapshot' | 'replay' =
     bookModeOverride === 'auto' ? (activeScenario ? 'replay' : 'snapshot') : bookModeOverride;
 
-  const activeCursorTime = pinnedTimeSec ?? hoverTimeSec ?? (activeScenario ? activeScenario.start_timestamp_sec + 4 : 166);
+  const activeCursorTime =
+    pinnedTimeSec ??
+    hoverTimeSec ??
+    (activeScenario
+      ? activeScenario.start_timestamp_sec + 4
+      : scenarios[0]
+        ? scenarios[0].start_timestamp_sec + 4
+        : orderEvents[0]?.event_timestamp_sec ?? 1450);
 
   const nearestSnapshot = useMemo(
     () => getNearestSnapshotAtTime(bookSnapshots, activeCursorTime),
@@ -758,7 +772,7 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
     darkMode,
   ]);
 
-  // Draw Overview Strip (0..1800s) with draggable brush & revealed scenario ticks
+  // Draw Overview Strip (0..sessionDurationSec) with draggable brush & revealed scenario ticks
   useEffect(() => {
     const canvas = overviewCanvasRef.current;
     if (!canvas) return;
@@ -843,7 +857,13 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
     ctx.font = '10px "IBM Plex Mono", monospace';
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${Math.round(sessionDurationSec / 60)}m`, padL - 8, cssH / 2);
+    ctx.fillText(
+      sessionDurationSec >= 3600
+        ? `${(sessionDurationSec / 3600).toFixed(sessionDurationSec % 3600 === 0 ? 0 : 1)}h`
+        : `${Math.round(sessionDurationSec / 60)}m`,
+      padL - 8,
+      cssH / 2
+    );
   }, [bookSnapshots, zoomRange, canReveal, scenarios, darkMode, sessionDurationSec]);
 
   // Main Canvas pointer helpers
@@ -1093,7 +1113,7 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
       ? zoomRange
       : activeScenario
         ? [activeScenario.start_timestamp_sec - 4, activeScenario.end_timestamp_sec + 4]
-        : [155, 195];
+        : zoomRange;
     const q = eventSearch.trim().toLowerCase();
 
     return orderEvents
@@ -1181,7 +1201,10 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
               className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-sans font-medium rounded border border-[var(--ln)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
-              Reset {Math.round(sessionDurationSec / 60)}m
+              Reset{' '}
+              {sessionDurationSec >= 3600
+                ? `${(sessionDurationSec / 3600).toFixed(sessionDurationSec % 3600 === 0 ? 0 : 1)}h`
+                : `${Math.round(sessionDurationSec / 60)}m`}
             </button>
           )}
         </div>
@@ -1282,8 +1305,28 @@ export const MarketViewTab: React.FC<MarketViewTabProps> = ({
           </div>
         )}
 
-        {/* Filters Row: Zoom-to-Scenario, Min Qty, Min Lifetime, Participant + Fine Label Filters */}
+        {/* Filters Row: Instrument, Zoom-to-Scenario, Min Qty, Min Lifetime, Participant + Fine Label Filters */}
         <div className="flex flex-wrap items-end gap-2.5 pt-2 border-t border-[var(--ln)]/70">
+          {instruments && instruments.length > 1 && onSelectInstrument && (
+            <label className="block">
+              <span className="block text-[11px] text-[var(--mut)] mb-0.5">Instrument</span>
+              <select
+                value={selectedInstrumentId ?? instruments[0].instrument_id}
+                onChange={(e) => {
+                  onSelectInstrument(e.target.value);
+                  onChangeFocusedScenario('all');
+                }}
+                aria-label="Select simulated instrument"
+                className="text-xs font-mono-tabular bg-[var(--sf)] text-[var(--ink)] border border-[var(--ln)] rounded-lg px-2 py-1.5 cursor-pointer font-semibold"
+              >
+                {instruments.map((inst) => (
+                  <option key={inst.instrument_id} value={inst.instrument_id}>
+                    {inst.symbol} ({inst.volatility_regime}/{inst.liquidity_regime})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="min-w-[230px] flex-1 max-w-xs block">
             <span className="block text-[11px] text-[var(--mut)] mb-0.5">
               Jump brush to scenario (requires revealed key)

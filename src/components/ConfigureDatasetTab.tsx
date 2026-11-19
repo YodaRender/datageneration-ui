@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   Play,
   RotateCcw,
@@ -25,6 +27,8 @@ import {
   createDefaultSimulationConfig,
   DEFAULT_LAUNCH_OPTIONS,
   DEMO_INSTANCES,
+  estimateInstrumentEventRates,
+  FULL_MARKET_DAY_SECONDS,
   QUICK_INSTANCES,
   SCENARIO_DEFINITIONS,
   validateSimulationConfig,
@@ -44,16 +48,32 @@ interface ConfigureDatasetTabProps {
   onNavigateTab: (tab: 'market' | 'dq' | 'det') => void;
 }
 
-type ModeView = 'run' | 'scenarios';
-type RunSubTab = 'session' | 'rates' | 'book' | 'scenario' | 'regimes' | 'output';
+type ModeView = 'run' | 'launch';
+type RunCategory = 'market' | 'episodes' | 'measurement';
+type MarketSubTab = 'session' | 'regimes' | 'rates';
+type EpisodesSubTab = 'scenario' | 'counts' | 'scenarios';
+type MeasurementSubTab = 'book';
 
-const RUN_SUB_TABS: Array<{ key: RunSubTab; label: string }> = [
+const RUN_CATEGORIES: Array<{ key: RunCategory; label: string }> = [
+  { key: 'market', label: 'Market' },
+  { key: 'episodes', label: 'Episodes' },
+  { key: 'measurement', label: 'Measurement' },
+];
+
+const MARKET_SUB_TABS: Array<{ key: MarketSubTab; label: string }> = [
   { key: 'session', label: 'Session & market' },
-  { key: 'rates', label: 'Baseline activity' },
-  { key: 'book', label: 'Book & features' },
-  { key: 'scenario', label: 'Shared scenario' },
   { key: 'regimes', label: 'Regimes' },
-  { key: 'output', label: 'Launch & presets' },
+  { key: 'rates', label: 'Baseline activity' },
+];
+
+const EPISODES_SUB_TABS: Array<{ key: EpisodesSubTab; label: string }> = [
+  { key: 'scenario', label: 'Shared scenario' },
+  { key: 'counts', label: 'Per-type instance counts' },
+  { key: 'scenarios', label: 'Scenario library (16)' },
+];
+
+const MEASUREMENT_SUB_TABS: Array<{ key: MeasurementSubTab; label: string }> = [
+  { key: 'book', label: 'Book & features' },
 ];
 
 const SCENARIO_GROUPS: ScenarioDefinition['group'][] = [
@@ -70,16 +90,21 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
   const [config, setConfig] = useState<SimulationConfig>(() => createDefaultSimulationConfig());
   const [launch, setLaunch] = useState<LaunchOptions>(() => ({ ...DEFAULT_LAUNCH_OPTIONS }));
   const [mode, setMode] = useState<ModeView>('run');
-  const [runSubTab, setRunSubTab] = useState<RunSubTab>('session');
+  const [runCategory, setRunCategory] = useState<RunCategory>('market');
+  const [marketSubTab, setMarketSubTab] = useState<MarketSubTab>('session');
+  const [episodesSubTab, setEpisodesSubTab] = useState<EpisodesSubTab>('scenario');
+  const [measurementSubTab, setMeasurementSubTab] = useState<MeasurementSubTab>('book');
   const [activeScenarioId, setActiveScenarioId] = useState<ScenarioId | null>(null);
   const [validationResult, setValidationResult] = useState<ConfigValidationResult | null>(null);
   const [lastGenerated, setLastGenerated] = useState<SyntheticDataset | null>(null);
+  const [showAdvancedResting, setShowAdvancedResting] = useState<boolean>(false);
   const [statusLog, setStatusLog] = useState<string>(
     'Ready. Configure simulation parameters or choose a preset to generate a synthetic dataset.'
   );
 
   const capacity = useMemo(() => computeCapacity(config), [config]);
   const configHash = useMemo(() => computeConfigHash(config, launch), [config, launch]);
+  const rateEstimates = useMemo(() => estimateInstrumentEventRates(config), [config]);
 
   const updateConfig = (mutator: (draft: SimulationConfig) => void) => {
     setConfig((prev) => {
@@ -98,24 +123,22 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
       return;
     }
     updateConfig((draft) => {
+      draft.session.run_duration_s = FULL_MARKET_DAY_SECONDS;
       if (kind === 'quick') {
-        draft.session.run_duration_s = 600;
         draft.scenario.scenario_instances = { ...QUICK_INSTANCES };
       } else if (kind === 'demo') {
-        draft.session.run_duration_s = 1500;
         draft.scenario.scenario_instances = { ...DEMO_INSTANCES };
       } else if (kind === 'yaml') {
-        draft.session.run_duration_s = 1800;
         draft.scenario.scenario_instances = { ...YAML_DEFAULT_INSTANCES };
       }
     });
     setValidationResult(null);
     setStatusLog(
       kind === 'quick'
-        ? 'Applied Quick preset (600 s · 1× per scenario).'
+        ? 'Applied Quick preset (09:15–15:15 · 1× per scenario).'
         : kind === 'demo'
-          ? 'Applied Makefile demo preset (1500 s · 2× per scenario).'
-          : 'Applied YAML default counts (1800 s · 25× per scenario).'
+          ? 'Applied Makefile demo preset (09:15–15:15 · 2× per scenario).'
+          : 'Applied YAML default counts (09:15–15:15 · 25× per scenario).'
     );
   };
 
@@ -279,22 +302,139 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
             hint="Requires partial_fill_enabled. Does not drive S02."
           />
         );
-      case 'resting_time':
-        return (
-          <RangeKnob
-            key={key}
-            label="Resting-time bounds"
-            keyPath="scenario.resting_time_min_s / max_s"
-            min={0.05}
-            max={30}
-            step={0.05}
-            value={config.scenario.resting_time_min_s}
-            rangeMaxValue={config.scenario.resting_time_max_s}
-            onChange={(v) => updateConfig((d) => { d.scenario.resting_time_min_s = v; })}
-            onChangeRangeMax={(v) => updateConfig((d) => { d.scenario.resting_time_max_s = v; })}
-            format={(v) => `${v.toFixed(2)} s`}
-          />
+      case 'resting_time': {
+        const typicalSec = Number(
+          Math.max(0.2, Math.min(15, Math.exp(config.scenario.resting_time_lognormal_mu))).toFixed(1)
         );
+        const varLevel: 'low' | 'medium' | 'high' =
+          config.scenario.resting_time_lognormal_sigma <= 0.45
+            ? 'low'
+            : config.scenario.resting_time_lognormal_sigma <= 0.85
+              ? 'medium'
+              : 'high';
+        return (
+          <div key={key} className="space-y-3">
+            <RangeKnob
+              label="Typical resting time"
+              keyPath="scenario.resting_time_lognormal_mu"
+              min={0.2}
+              max={15}
+              step={0.1}
+              value={typicalSec}
+              onChange={(v) =>
+                updateConfig((d) => {
+                  d.scenario.resting_time_lognormal_mu = Number(
+                    Math.log(Math.max(0.1, v)).toFixed(4)
+                  );
+                })
+              }
+              format={(v) => `${v.toFixed(1)} s`}
+              hint="Median resting duration before cancel/fill."
+            />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-[var(--ink)]">Variability</span>
+                <span className="text-[11px] font-mono-tabular text-[var(--mut)]">
+                  σ = {config.scenario.resting_time_lognormal_sigma.toFixed(2)}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['low', 'medium', 'high'] as const).map((lvl) => {
+                  const active = varLevel === lvl;
+                  const targetSigma = lvl === 'low' ? 0.3 : lvl === 'medium' ? 0.65 : 1.1;
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() =>
+                        updateConfig((d) => {
+                          d.scenario.resting_time_lognormal_sigma = targetSigma;
+                        })
+                      }
+                      aria-pressed={active}
+                      className={`px-2 py-1 text-xs font-semibold rounded-lg border capitalize cursor-pointer ${
+                        active
+                          ? 'bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)]'
+                          : 'bg-[var(--sf)] text-[var(--ink)] border-[var(--ln)] hover:bg-[var(--sf-alt)]'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="pt-1 border-t border-[var(--ln)]/60">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedResting((v) => !v)}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--mut)] hover:text-[var(--ink)] cursor-pointer"
+              >
+                {showAdvancedResting ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+                <span>Advanced resting-time parameters</span>
+              </button>
+              {showAdvancedResting && (
+                <div className="mt-2.5 space-y-2.5 pt-2 border-t border-[var(--ln)]/50">
+                  <SelectControl
+                    label="Resting-time distribution"
+                    keyPath="scenario.resting_time_distribution"
+                    value={config.scenario.resting_time_distribution}
+                    options={['lognormal', 'uniform']}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.scenario.resting_time_distribution = v as 'lognormal' | 'uniform';
+                      })
+                    }
+                  />
+                  <RangeKnob
+                    label="Lognormal μ / σ"
+                    keyPath="scenario.resting_time_lognormal_mu / sigma"
+                    min={0.05}
+                    max={3}
+                    step={0.05}
+                    value={config.scenario.resting_time_lognormal_mu}
+                    rangeMaxValue={config.scenario.resting_time_lognormal_sigma}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.scenario.resting_time_lognormal_mu = v;
+                      })
+                    }
+                    onChangeRangeMax={(v) =>
+                      updateConfig((d) => {
+                        d.scenario.resting_time_lognormal_sigma = v;
+                      })
+                    }
+                  />
+                  <RangeKnob
+                    label="Resting-time bounds"
+                    keyPath="scenario.resting_time_min_s / max_s"
+                    min={0.05}
+                    max={30}
+                    step={0.05}
+                    value={config.scenario.resting_time_min_s}
+                    rangeMaxValue={config.scenario.resting_time_max_s}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.scenario.resting_time_min_s = v;
+                      })
+                    }
+                    onChangeRangeMax={(v) =>
+                      updateConfig((d) => {
+                        d.scenario.resting_time_max_s = v;
+                      })
+                    }
+                    format={(v) => `${v.toFixed(2)} s`}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
       case 'latency_jitter':
         return (
           <RangeKnob
@@ -354,7 +494,7 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
           <div>
             <span className="text-[var(--mut)]">Session: </span>
             <span className="font-semibold text-[var(--ink)]">
-              {config.session.run_duration_s}s
+              09:15–15:15 (6h · {FULL_MARKET_DAY_SECONDS.toLocaleString()}s)
             </span>
           </div>
           <div>
@@ -393,18 +533,15 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
           <button
             type="button"
             role="tab"
-            aria-selected={mode === 'scenarios'}
-            onClick={() => {
-              setMode('scenarios');
-              setActiveScenarioId(null);
-            }}
+            aria-selected={mode === 'launch'}
+            onClick={() => setMode('launch')}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
-              mode === 'scenarios'
+              mode === 'launch'
                 ? 'bg-[var(--ink)] text-[var(--bg)] border-[var(--ink)]'
                 : 'bg-[var(--bg)] text-[var(--mut)] border-[var(--ln)] hover:text-[var(--ink)]'
             }`}
           >
-            Scenario library (16)
+            Launch &amp; presets
           </button>
         </div>
 
@@ -415,14 +552,14 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
             onClick={() => applyPreset('quick')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--ln)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--sf-alt)] whitespace-nowrap cursor-pointer"
           >
-            Quick (600s · 1×)
+            Quick (1×)
           </button>
           <button
             type="button"
             onClick={() => applyPreset('demo')}
             className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--ln)] bg-[var(--bg)] text-[var(--ink)] hover:bg-[var(--sf-alt)] whitespace-nowrap cursor-pointer"
           >
-            Makefile demo (1500s · 2×)
+            Makefile demo (2×)
           </button>
           <button
             type="button"
@@ -450,35 +587,128 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
       {/* MODE 1: RUN SETTINGS */}
       {mode === 'run' && (
         <div className="space-y-4">
-          {/* 6 Sub-tabs */}
-          <div className="flex flex-wrap gap-1.5 border-b border-[var(--ln)] pb-3">
-            {RUN_SUB_TABS.map((t) => {
-              const selected = runSubTab === t.key;
+          {/* Category sub-tabs: Market, Episodes, Measurement */}
+          <div
+            className="flex flex-wrap gap-1.5 border-b border-[var(--ln)] pb-3"
+            role="tablist"
+            aria-label="Run settings categories"
+          >
+            {RUN_CATEGORIES.map((cat) => {
+              const selected = runCategory === cat.key;
               return (
                 <button
-                  key={t.key}
+                  key={cat.key}
                   type="button"
-                  onClick={() => setRunSubTab(t.key)}
-                  aria-pressed={selected}
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setRunCategory(cat.key)}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
                     selected
                       ? 'bg-[var(--sf-alt)] text-[var(--ink)] border-[var(--ink)]'
                       : 'bg-transparent text-[var(--mut)] border-[var(--ln)] hover:text-[var(--ink)]'
                   }`}
                 >
-                  {t.label}
+                  {cat.label}
                 </button>
               );
             })}
           </div>
 
-          {/* 1. Session & Market */}
-          {runSubTab === 'session' && (
+          {/* Child sub-tabs under active category */}
+          {runCategory === 'market' && (
+            <div
+              className="flex flex-wrap gap-1.5 border-b border-[var(--ln)]/70 pb-3"
+              role="tablist"
+              aria-label="Market configuration tabs"
+            >
+              {MARKET_SUB_TABS.map((t) => {
+                const selected = marketSubTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setMarketSubTab(t.key)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+                      selected
+                        ? 'bg-[var(--bg)] text-[var(--ink)] border-[var(--sell)]'
+                        : 'bg-transparent text-[var(--mut)] border-[var(--ln)] hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {runCategory === 'episodes' && (
+            <div
+              className="flex flex-wrap gap-1.5 border-b border-[var(--ln)]/70 pb-3"
+              role="tablist"
+              aria-label="Episodes configuration tabs"
+            >
+              {EPISODES_SUB_TABS.map((t) => {
+                const selected = episodesSubTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => {
+                      setEpisodesSubTab(t.key);
+                      if (t.key === 'scenarios') setActiveScenarioId(null);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+                      selected
+                        ? 'bg-[var(--bg)] text-[var(--ink)] border-[var(--sell)]'
+                        : 'bg-transparent text-[var(--mut)] border-[var(--ln)] hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {runCategory === 'measurement' && (
+            <div
+              className="flex flex-wrap gap-1.5 border-b border-[var(--ln)]/70 pb-3"
+              role="tablist"
+              aria-label="Measurement configuration tabs"
+            >
+              {MEASUREMENT_SUB_TABS.map((t) => {
+                const selected = measurementSubTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setMeasurementSubTab(t.key)}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap cursor-pointer ${
+                      selected
+                        ? 'bg-[var(--bg)] text-[var(--ink)] border-[var(--sell)]'
+                        : 'bg-transparent text-[var(--mut)] border-[var(--ln)] hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 1. Market -> Session & Market */}
+          {runCategory === 'market' && marketSubTab === 'session' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ControlCard
                   title="Session"
-                  subtitle="Date, timezone, and bounded session duration."
+                  subtitle="Trading date, timezone, and full market-day window."
                 >
                   <TextControl
                     label="Trading date"
@@ -494,17 +724,18 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                     onChange={(v) => updateConfig((d) => { d.session.timezone = v; })}
                     hint="IANA timezone for the session."
                   />
-                  <RangeKnob
-                    label="Run duration"
-                    keyPath="session.run_duration_s"
-                    min={60}
-                    max={1800}
-                    step={30}
-                    value={config.session.run_duration_s}
-                    onChange={(v) => updateConfig((d) => { d.session.run_duration_s = v; })}
-                    format={(v) => `${v} s`}
-                    hint="CLI --duration. Keeps browser-generated session bundles fast and bounded."
-                  />
+                  <div className="bg-[var(--sf)] border border-[var(--ln)] rounded-lg p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-[var(--ink)]">Market session</span>
+                      <span className="font-mono-tabular font-semibold text-[var(--sell)]">
+                        09:15 – 15:15
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[var(--mut)] leading-snug">
+                      Fixed 6hr session from 09:15 to 15:15 (entire market day ·{' '}
+                      <span className="font-mono-tabular text-[var(--ink)]">21,600 s</span>).
+                    </p>
+                  </div>
                 </ControlCard>
 
                 <ControlCard
@@ -519,7 +750,7 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                     step={1}
                     value={config.market.instrument_count}
                     onChange={(v) => updateConfig((d) => { d.market.instrument_count = v; })}
-                    hint="First N entries from instruments.yaml. Row 1 drives Market view."
+                    hint="First N rows from instruments.yaml are simulated and selectable in Market view."
                   />
                   <SelectControl
                     label="Default volatility regime"
@@ -543,6 +774,25 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                       })
                     }
                   />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateConfig((d) => {
+                          d.instruments.forEach((inst) => {
+                            inst.volatility_regime = d.market.volatility_regime;
+                            inst.liquidity_regime = d.market.liquidity_regime;
+                          });
+                        });
+                        setStatusLog(
+                          `Applied ${config.market.volatility_regime}/${config.market.liquidity_regime} regimes across all ${config.instruments.length} instrument rows.`
+                        );
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-medium rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
+                    >
+                      Apply defaults to all instruments
+                    </button>
+                  </div>
                   <RangeKnob
                     label="Random seed"
                     keyPath="reproducibility.random_seed"
@@ -698,178 +948,292 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
             </div>
           )}
 
-          {/* 2. Baseline Activity */}
-          {runSubTab === 'rates' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ControlCard
-                title="Arrival mix"
-                subtitle={`cancel_rate + amend_rate must stay below 1.00 (currently ${(
-                  config.event_rates.cancel_rate + config.event_rates.amend_rate
-                ).toFixed(2)}).`}
-              >
-                <RangeKnob
-                  label="Background events / s"
-                  keyPath="event_rates.background_events_per_second"
-                  min={0.5}
-                  max={40}
-                  step={0.5}
-                  value={config.event_rates.background_events_per_second}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.background_events_per_second = v;
-                    })
-                  }
-                  hint="Per instrument, before regime multipliers."
-                />
-                <RangeKnob
-                  label="Cancel rate"
-                  keyPath="event_rates.cancel_rate"
-                  min={0}
-                  max={0.9}
-                  step={0.01}
-                  value={config.event_rates.cancel_rate}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.cancel_rate = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <RangeKnob
-                  label="Amend rate"
-                  keyPath="event_rates.amend_rate"
-                  min={0}
-                  max={0.9}
-                  step={0.01}
-                  value={config.event_rates.amend_rate}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.amend_rate = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <RangeKnob
-                  label="Marketable share"
-                  keyPath="event_rates.marketable_share"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.event_rates.marketable_share}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.marketable_share = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <RangeKnob
-                  label="Market-order share"
-                  keyPath="event_rates.market_order_share"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.event_rates.market_order_share}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.market_order_share = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <RangeKnob
-                  label="Marketable IOC share"
-                  keyPath="event_rates.marketable_ioc_share"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.event_rates.marketable_ioc_share}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.marketable_ioc_share = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-              </ControlCard>
+          {/* 2. Market -> Baseline Activity */}
+          {runCategory === 'market' && marketSubTab === 'rates' && (() => {
+            const decPct = Math.round(config.event_rates.amend_qty_decrease_share * 100);
+            const pxPct = Math.round(config.event_rates.amend_price_change_share * 100);
+            const incPct = Math.round((config.event_rates.amend_qty_increase_share ?? 0) * 100);
+            const totalAmendPct = decPct + pxPct + incPct;
+            const remainingAmendPct = Math.max(0, 100 - totalAmendPct);
 
-              <ControlCard
-                title="Participants & amends"
-                subtitle="Zipf participant activity skew and amend mix."
-              >
-                <RangeKnob
-                  label="Participant count"
-                  keyPath="event_rates.participant_count"
-                  min={2}
-                  max={80}
-                  step={1}
-                  value={config.event_rates.participant_count}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.participant_count = v;
-                    })
-                  }
-                />
-                <RangeKnob
-                  label="Zipf exponent"
-                  keyPath="event_rates.participant_zipf_exponent"
-                  min={0}
-                  max={2.5}
-                  step={0.05}
-                  value={config.event_rates.participant_zipf_exponent}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.participant_zipf_exponent = v;
-                    })
-                  }
-                />
-                <RangeKnob
-                  label="Amend qty-decrease share"
-                  keyPath="event_rates.amend_qty_decrease_share"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.event_rates.amend_qty_decrease_share}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.amend_qty_decrease_share = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-                <RangeKnob
-                  label="Amend price-change share"
-                  keyPath="event_rates.amend_price_change_share"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={config.event_rates.amend_price_change_share}
-                  onChange={(v) =>
-                    updateConfig((d) => {
-                      d.event_rates.amend_price_change_share = v;
-                    })
-                  }
-                  format={(v) => `${Math.round(v * 100)}%`}
-                />
-              </ControlCard>
-            </div>
-          )}
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ControlCard
+                  title="Arrival mix"
+                  subtitle={`cancel_rate + amend_rate must stay below 1.00 (currently ${(
+                    config.event_rates.cancel_rate + config.event_rates.amend_rate
+                  ).toFixed(2)}).`}
+                >
+                  <RangeKnob
+                    label="Background events / s"
+                    keyPath="event_rates.background_events_per_second"
+                    min={0.5}
+                    max={40}
+                    step={0.5}
+                    value={config.event_rates.background_events_per_second}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.background_events_per_second = v;
+                      })
+                    }
+                    hint="Base rate before liquidity, volatility, and intraday U-shape multipliers."
+                  />
+                  <RangeKnob
+                    label="Cancel rate"
+                    keyPath="event_rates.cancel_rate"
+                    min={0}
+                    max={0.9}
+                    step={0.01}
+                    value={config.event_rates.cancel_rate}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.cancel_rate = v;
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <RangeKnob
+                    label="Amend rate"
+                    keyPath="event_rates.amend_rate"
+                    min={0}
+                    max={0.9}
+                    step={0.01}
+                    value={config.event_rates.amend_rate}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.amend_rate = v;
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <RangeKnob
+                    label="Market-order share"
+                    keyPath="event_rates.market_order_share"
+                    min={0}
+                    max={0.2}
+                    step={0.01}
+                    value={config.event_rates.market_order_share}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.market_order_share = v;
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                    complementLabel="limit orders"
+                    hint={`Capped at 20%; remaining ${100 - Math.round(config.event_rates.market_order_share * 100)}% are limit orders.`}
+                  />
+                  <RangeKnob
+                    label="Limit IOC share"
+                    keyPath="event_rates.limit_ioc_share"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={config.event_rates.limit_ioc_share}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.limit_ioc_share = v;
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                    complementLabel="limit DAY orders"
+                    hint="Share of limit orders sent as IOC; remaining share is limit DAY orders."
+                  />
+                </ControlCard>
 
-          {/* 3. Book & Features */}
-          {runSubTab === 'book' && (
+                <ControlCard
+                  title="Participants & amends"
+                  subtitle="Zipf participant activity skew and 3-way constrained amend split (must equal 100%)."
+                >
+                  <RangeKnob
+                    label="Participant count"
+                    keyPath="event_rates.participant_count"
+                    min={2}
+                    max={80}
+                    step={1}
+                    value={config.event_rates.participant_count}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.participant_count = v;
+                      })
+                    }
+                  />
+                  <RangeKnob
+                    label="Zipf exponent"
+                    keyPath="event_rates.participant_zipf_exponent"
+                    min={0}
+                    max={2.5}
+                    step={0.05}
+                    value={config.event_rates.participant_zipf_exponent}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.event_rates.participant_zipf_exponent = v;
+                      })
+                    }
+                  />
+
+                  <div className="bg-[var(--sf)] border border-[var(--ln)] rounded-lg p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-mono-tabular">
+                      <span className="font-semibold text-[var(--ink)] font-sans">
+                        Amend split total (capped at 100%)
+                      </span>
+                      <span
+                        className={
+                          totalAmendPct === 100
+                            ? 'text-[var(--pass)] font-bold'
+                            : 'text-[var(--fail)] font-bold'
+                        }
+                      >
+                        {decPct}% + {pxPct}% + {incPct}% = {totalAmendPct}% / 100%
+                        {remainingAmendPct > 0 ? ` (${remainingAmendPct}% left)` : ''}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-[var(--ln)] overflow-hidden flex">
+                      <div
+                        style={{ width: `${decPct}%`, backgroundColor: 'var(--sell)' }}
+                        title={`Qty decrease: ${decPct}%`}
+                      />
+                      <div
+                        style={{ width: `${pxPct}%`, backgroundColor: 'var(--buy)' }}
+                        title={`Price change: ${pxPct}%`}
+                      />
+                      <div
+                        style={{ width: `${incPct}%`, backgroundColor: 'var(--flag)' }}
+                        title={`Qty increase: ${incPct}%`}
+                      />
+                    </div>
+                  </div>
+
+                  <RangeKnob
+                    label="Amend qty-decrease share"
+                    keyPath="event_rates.amend_qty_decrease_share"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={config.event_rates.amend_qty_decrease_share}
+                    maxSelectable={(100 - pxPct - incPct) / 100}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        const maxAllowed = (100 - pxPct - incPct) / 100;
+                        d.event_rates.amend_qty_decrease_share = Number(
+                          Math.min(v, maxAllowed).toFixed(2)
+                        );
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <RangeKnob
+                    label="Amend price-change share"
+                    keyPath="event_rates.amend_price_change_share"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={config.event_rates.amend_price_change_share}
+                    maxSelectable={(100 - decPct - incPct) / 100}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        const maxAllowed = (100 - decPct - incPct) / 100;
+                        d.event_rates.amend_price_change_share = Number(
+                          Math.min(v, maxAllowed).toFixed(2)
+                        );
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                  <RangeKnob
+                    label="Amend qty-increase share"
+                    keyPath="event_rates.amend_qty_increase_share"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={config.event_rates.amend_qty_increase_share ?? 0}
+                    maxSelectable={(100 - decPct - pxPct) / 100}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        const maxAllowed = (100 - decPct - pxPct) / 100;
+                        d.event_rates.amend_qty_increase_share = Number(
+                          Math.min(v, maxAllowed).toFixed(2)
+                        );
+                      })
+                    }
+                    format={(v) => `${Math.round(v * 100)}%`}
+                  />
+                </ControlCard>
+
+                <ControlCard
+                  className="md:col-span-2"
+                  title="Live estimated events / sec per instrument"
+                  subtitle="Combines background_events_per_second × liquidity multiplier × volatility activity scale × intraday U-shape across the 6hr session."
+                >
+                  <div className="overflow-x-auto border border-[var(--ln)] rounded-lg">
+                    <table className="w-full border-collapse text-xs font-mono-tabular min-w-[680px]">
+                      <thead>
+                        <tr className="bg-[var(--sf)] border-b border-[var(--ln)] text-[var(--mut)]">
+                          <th className="text-left px-3 py-2 font-medium font-sans">Instrument</th>
+                          <th className="text-left px-3 py-2 font-medium font-sans">Regime (Vol / Liq)</th>
+                          <th className="text-right px-3 py-2 font-medium font-sans">Multipliers (Base × Liq × Vol)</th>
+                          <th className="text-right px-3 py-2 font-medium font-sans">Session avg / s</th>
+                          <th className="text-right px-3 py-2 font-medium font-sans">Open peak (09:15)</th>
+                          <th className="text-right px-3 py-2 font-medium font-sans">Close peak (15:15)</th>
+                          <th className="text-right px-3 py-2 font-medium font-sans">Est. 6hr events</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rateEstimates.map((est) => (
+                          <tr
+                            key={est.instrument_id}
+                            className="border-b border-[var(--ln)]/60 last:border-b-0 bg-[var(--sf)]"
+                          >
+                            <td className="px-3 py-2 font-semibold text-[var(--ink)]">
+                              {est.symbol}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--mut)]">
+                              {est.volatility_regime} / {est.liquidity_regime}
+                            </td>
+                            <td className="px-3 py-2 text-right text-[var(--mut)]">
+                              {est.baseRate.toFixed(1)} × {est.liqMultiplier.toFixed(2)} ×{' '}
+                              {est.volScale.toFixed(2)} ={' '}
+                              <span className="text-[var(--ink)]">
+                                {est.steadyEventsPerSec.toFixed(1)}/s
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-bold text-[var(--sell)]">
+                              {est.avgEventsPerSec.toFixed(2)} ev/s
+                            </td>
+                            <td className="px-3 py-2 text-right text-[var(--ink)]">
+                              {est.openEventsPerSec.toFixed(2)} ev/s
+                            </td>
+                            <td className="px-3 py-2 text-right text-[var(--ink)]">
+                              {est.closeEventsPerSec.toFixed(2)} ev/s
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold text-[var(--ink)]">
+                              ~{est.estimatedSessionEvents.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </ControlCard>
+              </div>
+            );
+          })()}
+
+          {/* 3. Measurement -> Book & Features */}
+          {runCategory === 'measurement' && measurementSubTab === 'book' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ControlCard
                 title="Book & snapshots"
                 subtitle="L2 output depth, cadence, SMP policy, and invariant checks."
               >
                 <RangeKnob
-                  label="Snapshot levels"
+                  label="Snapshot depth (recorded)"
                   keyPath="book.snapshot_levels_n"
                   min={1}
-                  max={20}
+                  max={6}
                   step={1}
                   value={config.book.snapshot_levels_n}
                   onChange={(v) => updateConfig((d) => { d.book.snapshot_levels_n = v; })}
+                  hint="Number of L2 price levels recorded per side in book snapshots (max 6)."
                 />
                 <SelectControl
                   label="Snapshot mode"
@@ -945,16 +1309,17 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
 
               <ControlCard
                 title="Features"
-                subtitle="depth_convention is stored in config but unused. Sample rate maps to --sample-rate."
+                subtitle="Top-N level depth (depth_n) and %-band depth (depth_band_pct) are kept as deliberate, documented depth measures. Sample rate drives baseline windows."
               >
                 <RangeKnob
-                  label="Depth N"
+                  label="Feature depth (measured)"
                   keyPath="features.depth_n"
                   min={1}
                   max={20}
                   step={1}
                   value={config.features.depth_n}
                   onChange={(v) => updateConfig((d) => { d.features.depth_n = v; })}
+                  hint="Top-N price levels measured for level-based depth features (paired with depth_band_pct)."
                 />
                 <RangeKnob
                   label="Depth band %"
@@ -964,6 +1329,7 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                   step={0.05}
                   value={config.features.depth_band_pct}
                   onChange={(v) => updateConfig((d) => { d.features.depth_band_pct = v; })}
+                  hint="Percentage price-band depth measure documented as an alternative to top-N level depth."
                 />
                 <RangeKnob
                   label="Group gap"
@@ -1009,21 +1375,12 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                   }
                   format={(v) => `${Math.round(v * 100)}%`}
                 />
-                <SelectControl
-                  label="Depth convention (unused)"
-                  keyPath="features.depth_convention"
-                  value={config.features.depth_convention}
-                  options={['BEST', 'TOPN', 'BAND']}
-                  disabled
-                  onChange={() => {}}
-                  hint="Accepted in config; generation does not switch on it."
-                />
               </ControlCard>
             </div>
           )}
 
-          {/* 4. Shared Scenario */}
-          {runSubTab === 'scenario' && (
+          {/* 4. Episodes -> Shared Scenario */}
+          {runCategory === 'episodes' && episodesSubTab === 'scenario' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <ControlCard title="Placement" subtitle="Shared spacing through the session.">
@@ -1076,36 +1433,6 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                   title="Resting time, fills, jitter"
                   subtitle="Eligible layered and control types."
                 >
-                  <SelectControl
-                    label="Resting-time distribution"
-                    keyPath="scenario.resting_time_distribution"
-                    value={config.scenario.resting_time_distribution}
-                    options={['lognormal', 'uniform']}
-                    onChange={(v) =>
-                      updateConfig((d) => {
-                        d.scenario.resting_time_distribution = v as 'lognormal' | 'uniform';
-                      })
-                    }
-                  />
-                  <RangeKnob
-                    label="Lognormal μ / σ"
-                    keyPath="scenario.resting_time_lognormal_mu / sigma"
-                    min={0.05}
-                    max={3}
-                    step={0.05}
-                    value={config.scenario.resting_time_lognormal_mu}
-                    rangeMaxValue={config.scenario.resting_time_lognormal_sigma}
-                    onChange={(v) =>
-                      updateConfig((d) => {
-                        d.scenario.resting_time_lognormal_mu = v;
-                      })
-                    }
-                    onChangeRangeMax={(v) =>
-                      updateConfig((d) => {
-                        d.scenario.resting_time_lognormal_sigma = v;
-                      })
-                    }
-                  />
                   {renderSharedKnob('resting_time')}
                   <ToggleControl
                     label="Partial fills enabled"
@@ -1151,53 +1478,58 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                   />
                   {renderSharedKnob('latency_jitter')}
                   {renderSharedKnob('blend_actors')}
-                  <RangeKnob
-                    label="HFT cancel rate (unused)"
-                    keyPath="scenario.hft_cancel_rate_min / max"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={config.scenario.hft_cancel_rate_min}
-                    rangeMaxValue={config.scenario.hft_cancel_rate_max}
-                    onChange={() => {}}
-                    onChangeRangeMax={() => {}}
-                    format={(v) => `${Math.round(v * 100)}%`}
-                    disabled
-                    hint="In the schema, not used by scenario scripts."
-                  />
                 </ControlCard>
               </div>
-
-              <ControlCard
-                title="Per-type instance counts"
-                subtitle="This is the main per-type YAML setting. Click any type in Scenario library to inspect script constraints."
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {SCENARIO_DEFINITIONS.map((sc) => (
-                    <RangeKnob
-                      key={sc.id}
-                      label={`${sc.id} · ${sc.role === 'control' ? 'Ctrl' : 'Pattern'}`}
-                      keyPath={`scenario.scenario_instances.${sc.id}`}
-                      min={0}
-                      max={40}
-                      step={1}
-                      value={config.scenario.scenario_instances[sc.id]}
-                      onChange={(v) =>
-                        updateConfig((d) => {
-                          d.scenario.scenario_instances[sc.id] = v;
-                        })
-                      }
-                      hint={sc.name}
-                    />
-                  ))}
-                </div>
-              </ControlCard>
             </div>
           )}
 
-          {/* 5. Regimes */}
-          {runSubTab === 'regimes' && (
+          {/* 4b. Episodes -> Per-type Instance Counts */}
+          {runCategory === 'episodes' && episodesSubTab === 'counts' && (
+            <ControlCard
+              title="Per-type instance counts"
+              subtitle="This is the main per-type YAML setting. Click any type in Scenario library to inspect script constraints."
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {SCENARIO_DEFINITIONS.map((sc) => (
+                  <RangeKnob
+                    key={sc.id}
+                    label={`${sc.id} · ${sc.role === 'control' ? 'Ctrl' : 'Pattern'}`}
+                    keyPath={`scenario.scenario_instances.${sc.id}`}
+                    min={0}
+                    max={40}
+                    step={1}
+                    value={config.scenario.scenario_instances[sc.id]}
+                    onChange={(v) =>
+                      updateConfig((d) => {
+                        d.scenario.scenario_instances[sc.id] = v;
+                      })
+                    }
+                    hint={sc.name}
+                  />
+                ))}
+              </div>
+            </ControlCard>
+          )}
+
+          {/* 5. Market -> Regimes */}
+          {runCategory === 'market' && marketSubTab === 'regimes' && (
             <div className="space-y-4">
+              <div className="bg-[var(--bg)] border border-[var(--ln)] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="font-semibold text-[var(--ink)]">
+                  Live effective rate per instrument (incl. U-shape):
+                </span>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono-tabular">
+                  {rateEstimates.map((est) => (
+                    <span key={est.instrument_id} className="text-[var(--mut)]">
+                      <span className="font-semibold text-[var(--ink)]">{est.symbol}</span>:{' '}
+                      <span className="text-[var(--sell)] font-semibold">
+                        {est.avgEventsPerSec.toFixed(1)} ev/s avg
+                      </span>{' '}
+                      (open {est.openEventsPerSec.toFixed(1)} · close {est.closeEventsPerSec.toFixed(1)})
+                    </span>
+                  ))}
+                </div>
+              </div>
               <ControlCard
                 title="Mean reversion & intraday U-shape"
                 subtitle="Mid-price pull-back and intraday activity boosts near open and close."
@@ -1451,132 +1783,8 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
             </div>
           )}
 
-          {/* 6. Launch & Presets */}
-          {runSubTab === 'output' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <ControlCard
-                  title="CLI-equivalent launch"
-                  subtitle="Same flags as python -m surveillance_sim.cli generate."
-                >
-                  <SelectControl
-                    label="Export format"
-                    keyPath="launch.fmt"
-                    value={launch.fmt}
-                    options={['parquet', 'csv']}
-                    onChange={(v) => setLaunch((p) => ({ ...p, fmt: v as 'parquet' | 'csv' }))}
-                  />
-                  <TextControl
-                    label="Export directory"
-                    keyPath="launch.out"
-                    value={launch.out}
-                    onChange={(v) => setLaunch((p) => ({ ...p, out: v }))}
-                  />
-                  <ToggleControl
-                    label="Validation gate (off = --no-gate)"
-                    keyPath="launch.gate"
-                    checked={launch.gate}
-                    onChange={(v) => setLaunch((p) => ({ ...p, gate: v }))}
-                    hint="Marks run FAILED if DQ defects or S16 anomalies trigger gate checks."
-                  />
-                  <ToggleControl
-                    label="Persist to Postgres (needs DATABASE_URL)"
-                    keyPath="launch.persist"
-                    checked={launch.persist}
-                    onChange={(v) => setLaunch((p) => ({ ...p, persist: v }))}
-                  />
-                  <ToggleControl
-                    label="Replay check"
-                    keyPath="validation.replay_check"
-                    checked={config.validation.replay_check}
-                    onChange={(v) =>
-                      updateConfig((d) => {
-                        d.validation.replay_check = v;
-                      })
-                    }
-                  />
-                  <RangeKnob
-                    label="Max regeneration attempts"
-                    keyPath="validation.max_regeneration_attempts"
-                    min={0}
-                    max={8}
-                    step={1}
-                    value={config.validation.max_regeneration_attempts}
-                    onChange={(v) =>
-                      updateConfig((d) => {
-                        d.validation.max_regeneration_attempts = v;
-                      })
-                    }
-                  />
-                  <RangeKnob
-                    label="Inject synthetic DQ defects"
-                    keyPath="launch.defectRatePct"
-                    min={0}
-                    max={8}
-                    step={0.5}
-                    value={launch.defectRatePct}
-                    onChange={(v) => setLaunch((p) => ({ ...p, defectRatePct: v }))}
-                    format={(v) => `${v.toFixed(1)}%`}
-                    hint="Stress-test quality.validation_results & Data quality tab (0% = clean)."
-                  />
-                </ControlCard>
-
-                <ControlCard
-                  title="Run size presets & boundary notice"
-                  subtitle="YAML defaults are 25 instances per type — too many for a shortened session. Presets only change counts and duration."
-                >
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('quick')}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
-                    >
-                      Quick (600s · 1×)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('demo')}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
-                    >
-                      Makefile demo (1500s · 2×)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('yaml')}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
-                    >
-                      YAML counts (1800s · 25×)
-                    </button>
-                  </div>
-
-                  <div className="bg-[var(--sf)] border border-[var(--ln)] rounded-lg p-3 text-xs text-[var(--mut)] leading-relaxed">
-                    <strong className="text-[var(--ink)]">
-                      Thresholds.yaml is not wired into generation.
-                    </strong>{' '}
-                    Detector cut-offs stay on{' '}
-                    <code className="font-mono-tabular text-[var(--ink)]">evaluate</code>. This
-                    console does not pretend they change the dataset.
-                  </div>
-
-                  <div className="bg-[var(--sf)] border border-[var(--ln)] rounded-lg p-3 text-xs font-mono-tabular space-y-1">
-                    <div className="text-[var(--mut)]">CLI equivalent preview:</div>
-                    <div className="text-[var(--ink)] break-all">
-                      python -m surveillance_sim.cli generate --seed{' '}
-                      {config.reproducibility.random_seed} --duration{' '}
-                      {config.session.run_duration_s} --fmt {launch.fmt} --out {launch.out}
-                      {launch.gate ? '' : ' --no-gate'}
-                      {launch.persist ? ' --persist' : ''}
-                    </div>
-                  </div>
-                </ControlCard>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODE 2: SCENARIO LIBRARY (16) */}
-      {mode === 'scenarios' && !activeScenario && (
+          {/* 6. Episodes -> Scenario Library (16) */}
+          {runCategory === 'episodes' && episodesSubTab === 'scenarios' && !activeScenario && (
         <div className="space-y-5">
           {SCENARIO_GROUPS.map((groupName) => {
             const items = SCENARIO_DEFINITIONS.filter((s) => s.group === groupName);
@@ -1629,8 +1837,8 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
         </div>
       )}
 
-      {/* MODE 2 DETAIL VIEW: SINGLE SCENARIO */}
-      {mode === 'scenarios' && activeScenario && (
+          {/* EPISODES -> SCENARIO LIBRARY DETAIL VIEW */}
+          {runCategory === 'episodes' && episodesSubTab === 'scenarios' && activeScenario && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
@@ -1826,6 +2034,104 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
             })()}
           </ControlCard>
         </div>
+          )}
+        </div>
+      )}
+
+      {/* MODE 2: LAUNCH & PRESETS */}
+      {mode === 'launch' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ControlCard
+              title="CLI-equivalent launch"
+              subtitle="Same flags as python -m surveillance_sim.cli generate."
+            >
+              <SelectControl
+                label="Export format"
+                keyPath="launch.fmt"
+                value={launch.fmt}
+                options={['parquet', 'csv']}
+                onChange={(v) => setLaunch((p) => ({ ...p, fmt: v as 'parquet' | 'csv' }))}
+              />
+              <TextControl
+                label="Export directory"
+                keyPath="launch.out"
+                value={launch.out}
+                onChange={(v) => setLaunch((p) => ({ ...p, out: v }))}
+              />
+              <ToggleControl
+                label="Validation gate (off = --no-gate)"
+                keyPath="launch.gate"
+                checked={launch.gate}
+                onChange={(v) => setLaunch((p) => ({ ...p, gate: v }))}
+                hint="Marks run FAILED if DQ defects or S16 anomalies trigger gate checks."
+              />
+              <ToggleControl
+                label="Replay check"
+                keyPath="validation.replay_check"
+                checked={config.validation.replay_check}
+                onChange={(v) =>
+                  updateConfig((d) => {
+                    d.validation.replay_check = v;
+                  })
+                }
+              />
+              <RangeKnob
+                label="Max regeneration attempts"
+                keyPath="validation.max_regeneration_attempts"
+                min={0}
+                max={8}
+                step={1}
+                value={config.validation.max_regeneration_attempts}
+                onChange={(v) =>
+                  updateConfig((d) => {
+                    d.validation.max_regeneration_attempts = v;
+                  })
+                }
+              />
+              <RangeKnob
+                label="Inject synthetic DQ defects"
+                keyPath="launch.defectRatePct"
+                min={0}
+                max={8}
+                step={0.5}
+                value={launch.defectRatePct}
+                onChange={(v) => setLaunch((p) => ({ ...p, defectRatePct: v }))}
+                format={(v) => `${v.toFixed(1)}%`}
+                hint="Stress-test quality.validation_results & Data quality tab (0% = clean)."
+              />
+            </ControlCard>
+
+            <ControlCard
+              title="Run size presets"
+              subtitle="Session is fixed at 09:15–15:15 (6 hours). Presets adjust S01–S16 scenario instance counts."
+            >
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => applyPreset('quick')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
+                >
+                  Quick (6h · 1×)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('demo')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
+                >
+                  Makefile demo (6h · 2×)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('yaml')}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--ln)] bg-[var(--sf)] text-[var(--ink)] hover:bg-[var(--sf-alt)] cursor-pointer"
+                >
+                  YAML counts (6h · 25×)
+                </button>
+              </div>
+            </ControlCard>
+          </div>
+        </div>
       )}
 
       {/* Persistent Generation Footer */}
@@ -2000,9 +2306,11 @@ export const ConfigureDatasetTab: React.FC<ConfigureDatasetTabProps> = ({
                 </div>
               </div>
               <div className="bg-[var(--sf)] border border-[var(--ln)] rounded-lg px-2.5 py-2">
-                <div className="text-[11px] text-[var(--mut)] font-sans">Primary</div>
+                <div className="text-[11px] text-[var(--mut)] font-sans">Instruments</div>
                 <div className="font-bold text-[var(--ink)]">
-                  {lastGenerated.instrument_master.symbol}
+                  {lastGenerated.instruments && lastGenerated.instruments.length > 1
+                    ? `${lastGenerated.instrument_master.symbol} (+${lastGenerated.instruments.length - 1})`
+                    : lastGenerated.instrument_master.symbol}
                 </div>
               </div>
             </div>

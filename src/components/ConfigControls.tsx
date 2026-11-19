@@ -43,6 +43,8 @@ interface RangeKnobProps {
   format?: (val: number) => string;
   hint?: string;
   disabled?: boolean;
+  complementLabel?: string;
+  maxSelectable?: number;
 }
 
 export const RangeKnob: React.FC<RangeKnobProps> = ({
@@ -58,10 +60,14 @@ export const RangeKnob: React.FC<RangeKnobProps> = ({
   format,
   hint,
   disabled = false,
+  complementLabel,
+  maxSelectable,
 }) => {
   const isDual = typeof rangeMaxValue === 'number' && typeof onChangeRangeMax === 'function';
   const fmt = format ?? ((v: number) => formatStepValue(v, step));
   const span = Math.max(1e-9, max - min);
+  const hasCap = !isDual && typeof maxSelectable === 'number';
+  const effectiveMax = hasCap ? Math.max(min, Math.min(max, maxSelectable)) : max;
   const clampedMin = Math.max(min, Math.min(max, value));
   const clampedMax = isDual ? Math.max(clampedMin, Math.min(max, rangeMaxValue)) : clampedMin;
 
@@ -69,12 +75,15 @@ export const RangeKnob: React.FC<RangeKnobProps> = ({
   const pctWidth = isDual
     ? ((clampedMax - clampedMin) / span) * 100
     : ((clampedMin - min) / span) * 100;
+  const capPct = hasCap ? ((effectiveMax - min) / span) * 100 : 100;
 
   const parseRound = (raw: string) => {
     const parsed = parseFloat(raw);
     if (Number.isInteger(step) && step >= 1) return Math.round(parsed);
     return Number(parsed.toFixed(4));
   };
+
+  const complementPct = Math.max(0, 100 - Math.round(clampedMin * 100));
 
   return (
     <div className={`space-y-1 ${disabled ? 'opacity-55' : ''}`}>
@@ -86,48 +95,71 @@ export const RangeKnob: React.FC<RangeKnobProps> = ({
       </div>
       <div className="text-[11px] font-mono-tabular text-[var(--mut)] break-all">{keyPath}</div>
 
-      <div className="relative h-6 flex items-center select-none">
-        <div className="w-full h-1.5 rounded-full bg-[var(--ln)] relative overflow-hidden">
-          <div
-            className="absolute top-0 bottom-0 rounded-full"
-            style={{
-              left: `${pctLeft}%`,
-              width: `${Math.max(0, Math.min(100 - pctLeft, pctWidth))}%`,
-              backgroundColor: disabled ? 'var(--mut)' : 'var(--sell)',
-            }}
-          />
-        </div>
+      <div className="flex items-center gap-2.5">
+        <div className="relative h-6 flex-1 flex items-center select-none min-w-0">
+          <div className="w-full h-1.5 rounded-full bg-[var(--ln)] relative overflow-hidden">
+            <div
+              className="absolute top-0 bottom-0 rounded-full"
+              style={{
+                left: `${pctLeft}%`,
+                width: `${Math.max(0, Math.min(100 - pctLeft, pctWidth))}%`,
+                backgroundColor: disabled ? 'var(--mut)' : 'var(--sell)',
+              }}
+            />
+            {hasCap && capPct < 100 && (
+              <div
+                className="absolute top-0 bottom-0 bg-[var(--mut)]/25 border-l border-[var(--mut)]/60"
+                style={{ left: `${capPct}%`, right: 0 }}
+                title={`Capped at ${fmt(effectiveMax)} so amend split totals 100%`}
+              />
+            )}
+          </div>
 
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={clampedMin}
-          disabled={disabled}
-          aria-label={isDual ? `${label} minimum` : label}
-          onChange={(e) => {
-            const next = parseRound(e.target.value);
-            onChange(isDual ? Math.min(next, clampedMax) : next);
-          }}
-          className="dual-range-input absolute inset-0 w-full h-6 m-0 z-10"
-        />
-
-        {isDual && (
           <input
             type="range"
             min={min}
             max={max}
             step={step}
-            value={clampedMax}
+            value={clampedMin}
             disabled={disabled}
-            aria-label={`${label} maximum`}
+            aria-label={isDual ? `${label} minimum` : label}
             onChange={(e) => {
               const next = parseRound(e.target.value);
-              onChangeRangeMax(Math.max(next, clampedMin));
+              const bounded = isDual
+                ? Math.min(next, clampedMax)
+                : hasCap
+                  ? Math.min(next, effectiveMax)
+                  : next;
+              onChange(bounded);
             }}
-            className="dual-range-input absolute inset-0 w-full h-6 m-0 z-20"
+            className="dual-range-input absolute inset-0 w-full h-6 m-0 z-10"
           />
+
+          {isDual && (
+            <input
+              type="range"
+              min={min}
+              max={max}
+              step={step}
+              value={clampedMax}
+              disabled={disabled}
+              aria-label={`${label} maximum`}
+              onChange={(e) => {
+                const next = parseRound(e.target.value);
+                onChangeRangeMax(Math.max(next, clampedMin));
+              }}
+              className="dual-range-input absolute inset-0 w-full h-6 m-0 z-20"
+            />
+          )}
+        </div>
+
+        {complementLabel && !isDual && (
+          <span
+            className="inline-flex items-center px-2 py-0.5 rounded border border-dashed border-[var(--mut)]/55 bg-transparent text-[11px] font-mono-tabular text-[var(--mut)] whitespace-nowrap shrink-0 select-none"
+            title={`Remaining share: ${complementPct}% ${complementLabel}`}
+          >
+            {complementPct}% {complementLabel}
+          </span>
         )}
       </div>
 

@@ -11,8 +11,8 @@ import { DetectorTab } from './components/DetectorTab';
 type TabKey = 'configure' | 'schema' | 'market' | 'dq' | 'det';
 
 const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'configure', label: 'Configure synthetic dataset' },
   { key: 'schema', label: 'Schema & isolation' },
+  { key: 'configure', label: 'Configure synthetic dataset' },
   { key: 'market', label: 'Market view' },
   { key: 'dq', label: 'Data quality' },
   { key: 'det', label: 'Surveillance features' },
@@ -23,9 +23,12 @@ export default function App() {
   const [selectedRunId, setSelectedRunId] = useState<string>(PREBUILT_RUNS[0].run_metadata.run_id);
   const [artifactMode, setArtifactMode] = useState<ReportArtifactMode>('evaluator');
   const [revealLabels, setRevealLabels] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<TabKey>('configure');
+  const [activeTab, setActiveTab] = useState<TabKey>('schema');
   const [focusedScenarioId, setFocusedScenarioId] = useState<string>('all');
   const [highlightParticipantId, setHighlightParticipantId] = useState<string | null>(null);
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<string>(
+    PREBUILT_RUNS[0].instrument_master.instrument_id
+  );
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -44,6 +47,55 @@ export default function App() {
     [runs, selectedRunId]
   );
 
+  const activeInstruments = useMemo(
+    () =>
+      activeRun.instruments && activeRun.instruments.length > 0
+        ? activeRun.instruments
+        : [activeRun.instrument_master],
+    [activeRun]
+  );
+
+  const effectiveInstrument = useMemo(
+    () =>
+      activeInstruments.find((i) => i.instrument_id === selectedInstrumentId) ??
+      activeInstruments[0],
+    [activeInstruments, selectedInstrumentId]
+  );
+
+  const marketOrderEvents = useMemo(
+    () =>
+      activeInstruments.length > 1
+        ? activeRun.model_input.order_events.filter(
+            (e) => e.instrument_id === effectiveInstrument.instrument_id
+          )
+        : activeRun.model_input.order_events,
+    [activeInstruments.length, activeRun.model_input.order_events, effectiveInstrument.instrument_id]
+  );
+
+  const marketBookSnapshots = useMemo(
+    () =>
+      activeInstruments.length > 1
+        ? activeRun.model_input.book_snapshots.filter(
+            (b) => b.instrument_id === effectiveInstrument.instrument_id
+          )
+        : activeRun.model_input.book_snapshots,
+    [activeInstruments.length, activeRun.model_input.book_snapshots, effectiveInstrument.instrument_id]
+  );
+
+  const marketScenarios = useMemo(() => {
+    if (artifactMode !== 'evaluator') return [];
+    return activeInstruments.length > 1
+      ? activeRun.evaluator_bundle.scenario_manifest.filter(
+          (s) => s.instrument_id === effectiveInstrument.instrument_id
+        )
+      : activeRun.evaluator_bundle.scenario_manifest;
+  }, [
+    artifactMode,
+    activeInstruments.length,
+    activeRun.evaluator_bundle.scenario_manifest,
+    effectiveInstrument.instrument_id,
+  ]);
+
   const sessionDurationSec = useMemo(() => {
     const cfgSession = (activeRun.run_metadata.config_json as { session?: { run_duration_s?: number } })?.session;
     if (cfgSession?.run_duration_s && cfgSession.run_duration_s > 0) {
@@ -53,7 +105,7 @@ export default function App() {
     if (snaps.length > 0) {
       return Math.max(60, Math.round(snaps[snaps.length - 1].snapshot_timestamp_sec));
     }
-    return 1800;
+    return 21600;
   }, [activeRun]);
 
   const runOptions = useMemo(
@@ -83,6 +135,8 @@ export default function App() {
 
   const handleSelectRun = (runId: string) => {
     setSelectedRunId(runId);
+    const nextRun = runs.find((r) => r.run_metadata.run_id === runId);
+    if (nextRun) setSelectedInstrumentId(nextRun.instrument_master.instrument_id);
     setFocusedScenarioId('all');
     setHighlightParticipantId(null);
   };
@@ -93,6 +147,7 @@ export default function App() {
       return [dataset, ...filtered];
     });
     setSelectedRunId(dataset.run_metadata.run_id);
+    setSelectedInstrumentId(dataset.instrument_master.instrument_id);
     setFocusedScenarioId('all');
     setHighlightParticipantId(null);
   };
@@ -102,6 +157,12 @@ export default function App() {
     participantId?: string;
   }) => {
     if (params.scenarioId && artifactMode === 'evaluator' && revealLabels) {
+      const scn = activeRun.evaluator_bundle.scenario_manifest.find(
+        (s) => s.scenario_id === params.scenarioId
+      );
+      if (scn) {
+        setSelectedInstrumentId(scn.instrument_id);
+      }
       setFocusedScenarioId(params.scenarioId);
     }
     if (params.participantId) {
@@ -129,6 +190,7 @@ export default function App() {
           onSelectRun={handleSelectRun}
           runMetadata={activeRun.run_metadata}
           instrument={activeRun.instrument_master}
+          instruments={activeInstruments}
           artifactMode={artifactMode}
           onChangeArtifactMode={handleChangeArtifactMode}
           revealLabels={revealLabels}
@@ -188,11 +250,9 @@ export default function App() {
             <MarketViewTab
               artifactMode={artifactMode}
               revealLabels={revealLabels}
-              orderEvents={activeRun.model_input.order_events}
-              bookSnapshots={activeRun.model_input.book_snapshots}
-              scenarios={
-                artifactMode === 'evaluator' ? activeRun.evaluator_bundle.scenario_manifest : []
-              }
+              orderEvents={marketOrderEvents}
+              bookSnapshots={marketBookSnapshots}
+              scenarios={marketScenarios}
               orderScenarioMap={
                 artifactMode === 'evaluator' ? activeRun.evaluator_bundle.order_scenario_map : {}
               }
@@ -202,6 +262,9 @@ export default function App() {
               onClearHighlightParticipant={() => setHighlightParticipantId(null)}
               darkMode={darkMode}
               sessionDurationSec={sessionDurationSec}
+              instruments={activeInstruments}
+              selectedInstrumentId={effectiveInstrument.instrument_id}
+              onSelectInstrument={setSelectedInstrumentId}
             />
           )}
 

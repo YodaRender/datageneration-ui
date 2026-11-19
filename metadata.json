@@ -1,6 +1,6 @@
 {
-  "name": "Remix Surveillance Lab — Market Abuse Schema \u0026 Report Explorer - V3",
-  "description": "Interactive market surveillance dataset inspector adapted for multi-schema PostgreSQL order-event, quality-gate, long-format feature, and isolated ground-truth models.",
+  "name": "Remix Remix Remix Remix Remix Surveillance Lab — Market Abuse Schema \u0026 Report Explorer - V5",
+  "description": "removed aggressive orders, removed dead controls, removed backend connections(CLI AND thresholds.yaml) hid lognormal in advanced, modified book and feature snapshots displayed, removed depth conventions and cap of 20% on market orders.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

@@ -21,6 +21,7 @@ interface RunHeaderProps {
   onSelectRun: (runId: string) => void;
   runMetadata: RunMetadata;
   instrument: InstrumentMaster;
+  instruments?: InstrumentMaster[];
   artifactMode: ReportArtifactMode;
   onChangeArtifactMode: (mode: ReportArtifactMode) => void;
   revealLabels: boolean;
@@ -35,6 +36,7 @@ export const RunHeader: React.FC<RunHeaderProps> = ({
   onSelectRun,
   runMetadata,
   instrument,
+  instruments,
   artifactMode,
   onChangeArtifactMode,
   revealLabels,
@@ -138,9 +140,16 @@ export const RunHeader: React.FC<RunHeaderProps> = ({
         {/* Dense read-only grid from quality.run_metadata & core.instrument_master */}
         <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-3 mt-4 pt-4 border-t border-[var(--ln)] text-xs">
           <div>
-            <dt className="text-[var(--mut)]">Instrument</dt>
-            <dd className="font-mono-tabular font-semibold text-[var(--ink)] mt-0.5">
-              {instrument.symbol} · {instrument.exchange} ({instrument.instrument_type})
+            <dt className="text-[var(--mut)]">
+              {instruments && instruments.length > 1 ? `Instruments (${instruments.length})` : 'Instrument'}
+            </dt>
+            <dd
+              className="font-mono-tabular font-semibold text-[var(--ink)] mt-0.5"
+              title={instruments?.map((i) => i.symbol).join(', ')}
+            >
+              {instrument.symbol}
+              {instruments && instruments.length > 1 ? ` (+${instruments.length - 1})` : ''} ·{' '}
+              {instrument.exchange} ({instrument.instrument_type})
             </dd>
           </div>
           <div>
@@ -175,6 +184,36 @@ export const RunHeader: React.FC<RunHeaderProps> = ({
             </dd>
           </div>
         </dl>
+
+        {runMetadata.amend_split && (
+          <div className="mt-3 pt-3 border-t border-[var(--ln)]/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <span className="text-[var(--mut)] font-medium">
+              Amend split (qty decrease / price change / qty increase ·{' '}
+              <span className="font-mono-tabular text-[var(--ink)]">
+                {runMetadata.amend_split.realised.total_amends.toLocaleString()} amends
+              </span>
+              )
+            </span>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono-tabular">
+              <div>
+                <span className="text-[var(--mut)]">Requested: </span>
+                <span className="text-[var(--ink)] font-semibold">
+                  {runMetadata.amend_split.requested.qty_decrease_pct}% /{' '}
+                  {runMetadata.amend_split.requested.price_change_pct}% /{' '}
+                  {runMetadata.amend_split.requested.qty_increase_pct}%
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--mut)]">Realised: </span>
+                <span className="text-[var(--sell)] font-semibold">
+                  {runMetadata.amend_split.realised.qty_decrease_pct.toFixed(1)}% /{' '}
+                  {runMetadata.amend_split.realised.price_change_pct.toFixed(1)}% /{' '}
+                  {runMetadata.amend_split.realised.qty_increase_pct.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Expandable config_json + size budget detail */}
         {showConfig && (
@@ -279,8 +318,8 @@ export const RunHeader: React.FC<RunHeaderProps> = ({
           </div>
           <span className="text-xs text-[var(--mut)]">
             {isModelInputOnly
-              ? 'PostgreSQL role model_reader · labels.* physically excluded from payload'
-              : 'PostgreSQL role evaluator · labels.scenario_manifest sidecar loaded'}
+              ? 'Role model_reader · labels.* physically excluded from payload'
+              : 'Role evaluator · labels.scenario_manifest sidecar loaded'}
           </span>
         </div>
 
